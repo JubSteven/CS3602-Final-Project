@@ -63,7 +63,9 @@ slotvalue: ['inform-操作-导航', 'inform-终点名称-凯里大十字']
 
 tag_id: [30, 31, 1, 14, 15, 15, 15, 15]. 
 
-Use the convert_tag_to_idx function to convert slotvalue into corresponding index using existing vocabulary.
+Use the convert_tag_to_idx function to convert slotvalue into corresponding index using existing vocabulary. 
+
+(Only consider the act and slot part, no value as it is not in the dataset)
 ```
 
 **Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that$f := w\rightarrow y=(a,s,v)$
