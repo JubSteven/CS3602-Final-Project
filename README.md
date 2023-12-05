@@ -66,10 +66,8 @@ tag_id: [30, 31, 1, 14, 15, 15, 15, 15].
 Use the convert_tag_to_idx function to convert slotvalue into corresponding index using existing vocabulary.
 ```
 
-**Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that
-$$
-    f := w\mapsto y=(a,s,v)
-$$
+**Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that$f := w\rightarrow y=(a,s,v)$
+
 
 where $y$ is a discrete variable. It remains to be seen whether we should break them apart. For now, I leave it as it is.
 
