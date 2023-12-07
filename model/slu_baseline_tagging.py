@@ -23,8 +23,8 @@ class SLUTagging(nn.Module):
 
         embed = self.word_embed(input_ids)
         packed_inputs = rnn_utils.pack_padded_sequence(embed, lengths, batch_first=True, enforce_sorted=True)
-        packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
-        rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
+        packed_rnn_out, _ = self.rnn(packed_inputs)  # bsize x seqlen x dim
+        rnn_out, _ = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
         hiddens = self.dropout_layer(rnn_out)
         tag_output = self.output_layer(hiddens, tag_mask, tag_ids)
 
@@ -60,6 +60,7 @@ class SLUTagging(nn.Module):
                 value = ''.join([batch.utt[i][j] for j in idx_buff])
                 pred_tuple.append(f'{slot}-{value}')
             predictions.append(pred_tuple)
+
         if len(output) == 1:
             return predictions
         else:
