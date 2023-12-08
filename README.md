@@ -77,7 +77,7 @@ where $y$ is a discrete variable. It remains to be seen whether we should break 
 
 The model is relatively simple, defined in `model/slu_baseline_tagging.py`. The forward function deals with the inputs in batch. The word embeddings (`nn.Embedding`) are loaded directly from `word2vec-768.txt`. The model structure can be read simply, so I will focus on the tricky part where data is processed (continuing in the order of `slu_baseline.py`).
 
-First, all the data is loaded into `train_dataset`, and `cur_dataset` is a batch subset of the full dataset. Recall that `train_dataset` is a list of `Example()` objects. `from_example_list` takes in the the subset of `Example()` objects, and returns `current_batch` as a `Batch` object (defined in `utils/batch.py`) with many more attributes, including `utt`, `did`, `lengths`, `lables`, etc. After that, it is fed into the model described previously.
+First, all the data is loaded into `train_dataset`, and `cur_dataset` is a batch subset of the full dataset. Recall that `train_dataset` is a list of `Example()` objects. `from_example_list` takes in the the subset of `Example()` objects, and returns `current_batch` as a `Batch` object (defined in `utils/batch.py`) with many more attributes, including `utt`, `did`, `lengths`, `labels`, etc. After that, it is fed into the model described previously.
 
 The output of the model is a `torch.Tensor` of shape `[32, 26, 74]`, where `32` is the `batch_size`. The `decode` function will use `SLUTagging.decode()` method to iterate over the dataset again using the trained model, decode the result (transfer the probability into solid indices) and finally use `Example.evaluator()` to calculate the metrics required.
 
