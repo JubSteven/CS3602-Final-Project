@@ -25,7 +25,7 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--max_epoch', type=int, default=100, help='terminate after maximum epochs')
     #### Common Encoder Hyperparams ####
     arg_parser.add_argument('--encoder_cell', default='bert-base-chinese', 
-                            choices=['bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN'], 
+                            choices=['bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN','roberta-base',"MacBERT-base"],
                             help='model type to choose from')
     arg_parser.add_argument('--dropout', type=float, default=0.2, help='feature dropout rate')
     arg_parser.add_argument('--embed_size', default=768, type=int, help='Size of word embeddings')
@@ -34,4 +34,4 @@ def add_argument_base(arg_parser):
     return arg_parser
 
 
-opts = init_args()
+# opts = init_args()

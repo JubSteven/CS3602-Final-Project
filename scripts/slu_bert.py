@@ -125,7 +125,7 @@ if not args.testing:
                 metrics, dev_loss = decode('dev')
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
             
-            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f} | Acc: {dev_acc:.2f} | P: {dev_fscore['precision']:.2f} | R: {dev_fscore['recall']:.2f}| F: {dev_fscore['fscore']:.2f}")
+            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}")
         torch.cuda.empty_cache()
         gc.collect()
 

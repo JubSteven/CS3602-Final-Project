@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel
 from transformers import AutoTokenizer, AutoModelForMaskedLM
-
+from transformers import AutoModel
 
 
 
@@ -22,7 +22,8 @@ class TaggingFNNDecoder(nn.Module):
             loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
             return prob, loss
         return (prob, )
-    
+
+
 
 class SLUNaiveBertTagging(nn.Module):
     def __init__(self, cfg):
@@ -35,19 +36,31 @@ class SLUNaiveBertTagging(nn.Module):
         self.set_model()
 
         # TODO can polish a bit here
-        self.hidden_size = 768 if self.model_type == "bert-base-chinese" else 256
+        if self.model_type == "bert-base-chinese" or "MacBERT-base" or "roberta-base":
+            self.hidden_size = 768
+        else:
+            self.hidden_size =  256
         
         self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
     
     def set_model(self):
-        assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt"]
+        # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
         if self.model_type == "bert-base-chinese":
             self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
             self.model = BertModel.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+        elif self.model_type == "MacBERT-base":
+            self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
+            self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base", output_hidden_states=True).to(self.device)
+        elif self.model_type == "MacBERT-large":
+            self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
+            self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large", output_hidden_states=True).to(self.device)
+        elif self.model_type == "roberta-base":
+            self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
+            self.model = BertModel.from_pretrained("clue/roberta_chinese_base",output_hidden_states=True).to(self.device)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
             self.model = AutoModelForMaskedLM.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
-    
+
         
     def forward(self, batch):
         """
