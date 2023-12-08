@@ -119,9 +119,9 @@ if not args.testing:
             optimizer.step()
             optimizer.zero_grad()
             count += 1
-        print('Training: \tEpoch: %d\tTime: %.4f\tTraining Loss: %.4f' % (i, time.time() - start_time, epoch_loss / count))
-        torch.cuda.empty_cache()
-        gc.collect()
+        print('Training: \tEpoch: %d\tTime: %.4f s\tTraining Loss: %.4f' % (i, time.time() - start_time, epoch_loss / count))
+        torch.cuda.empty_cache() # release GPU memory
+        gc.collect() # release GPU memory
 
         start_time = time.time()
         metrics, dev_loss = decode('dev')

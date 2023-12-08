@@ -3,6 +3,8 @@ import argparse
 import sys
 
 
+
+
 def init_args(params=sys.argv[1:]):
     arg_parser = argparse.ArgumentParser()
     arg_parser = add_argument_base(arg_parser)
@@ -24,9 +26,12 @@ def add_argument_base(arg_parser):
     #### Common Encoder Hyperparams ####
     arg_parser.add_argument('--encoder_cell', default='bert-base-chinese', 
                             choices=['bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN'], 
-                            help='root of data')
+                            help='model type to choose from')
     arg_parser.add_argument('--dropout', type=float, default=0.2, help='feature dropout rate')
     arg_parser.add_argument('--embed_size', default=768, type=int, help='Size of word embeddings')
     arg_parser.add_argument('--hidden_size', default=512, type=int, help='hidden size')
     arg_parser.add_argument('--num_layer', default=2, type=int, help='number of layer')
     return arg_parser
+
+
+opts = init_args()
