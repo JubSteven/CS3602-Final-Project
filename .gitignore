@@ -1,4 +1,5 @@
 data/
-*.bin
+**.bin
 MinRBT-h256-pt/
-*.pyc
+**.pyc
+__pycache__/

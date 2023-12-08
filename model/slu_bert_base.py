@@ -13,7 +13,6 @@ class TaggingFNNDecoder(nn.Module):
 
     def forward(self, hiddens, mask, labels=None):
         logits = self.output_layer(hiddens)
-        logits = logits[:, :mask.shape[1], :] # ! remove the padded part, flawed
         logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
         prob = torch.softmax(logits, dim=-1)
         if labels is not None:
@@ -39,7 +38,8 @@ class SLUBertTagging(nn.Module):
         tag_ids = batch.tag_ids
         tag_mask = batch.tag_mask
         
-        encoded_inputs = self.tokenizer(batch.utt, padding=True, truncation=True, max_length=150, return_tensors='pt').to(self.device)
+        self.length = [len(utt) for utt in batch.utt]
+        encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True, max_length=max(self.length), return_tensors='pt').to(self.device)
                 
         hiddens = self.model(**encoded_inputs).last_hidden_state
         
