@@ -8,7 +8,7 @@ Given an input sentence of spoken language (denoted by concantenation of static 
 
 > 我想定一张从北京飞到上海的机票
 
-The target output would be `inform(城市=上海)`, where `inform` is the act, `城市` is the slot and `上海` is the label. Note that all the acts $a\in A$ and value $v\in V$, where $A,V$ are *preset* datasets. Note that for a given sentence, it is possible to have **more than one** $(a,s,v)$ pairs. As an example, we have the following.
+The target output would be `inform(城市=上海)`, where `inform` is the act, `城市` is the slot and `上海` is the label(value). Note that all the acts $a\in A$ and value $v\in V$, where $A,V$ are *preset* datasets. Note that for a given sentence, it is possible to have **more than one** $(a,s,v)$ pairs. As an example, we have the following.
 
 ```json
 {
@@ -68,7 +68,7 @@ Use the convert_tag_to_idx function to convert slotvalue into corresponding inde
 (Only consider the act and slot part, no value as it is not in the dataset)
 ```
 
-**Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that$f := w\rightarrow y=(a,s,v)$
+**Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that $f := w\rightarrow y=(a,s,v)$
 
 
 where $y$ is a discrete variable. It remains to be seen whether we should break them apart. For now, I leave it as it is.
