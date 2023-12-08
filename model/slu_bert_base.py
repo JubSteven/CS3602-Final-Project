@@ -3,15 +3,7 @@ import torch.nn as nn
 from transformers import BertTokenizer, BertModel
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 
-def set_model(model):
-    assert model in ["bert-base-chinese", "MiniRBT-h256-pt"]
-    if model == "bert-base-chinese":
-        tokenizer = BertTokenizer.from_pretrained(model, output_hidden_states=True)
-        model = BertModel.from_pretrained(model)
-    else:
-        tokenizer = AutoTokenizer.from_pretrained(model)
-        model = AutoModelForMaskedLM.from_pretrained(model, output_hidden_states=True)
-    return tokenizer, model
+
 
 
 class TaggingFNNDecoder(nn.Module):
@@ -39,13 +31,23 @@ class SLUNaiveBertTagging(nn.Module):
         self.device = cfg.device
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
-        # self.tokenizer = BertTokenizer.from_pretrained(cfg.bert_path)
-        # self.model = BertModel.from_pretrained(cfg.bert_path).to(self.device)
+
+        self.set_model()
+
+        # TODO can polish a bit here
+        self.hidden_size = 768 if self.model_type == "bert-base-chinese" else 256
         
-        self.tokenizer, self.model = set_model(self.model_type)
-        self.model.to(self.device)
-        
-        self.output_layer = TaggingFNNDecoder(self.model.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+    
+    def set_model(self):
+        assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt"]
+        if self.model_type == "bert-base-chinese":
+            self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
+            self.model = BertModel.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
+            self.model = AutoModelForMaskedLM.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+    
         
     def forward(self, batch):
         """
@@ -55,7 +57,8 @@ class SLUNaiveBertTagging(nn.Module):
         tag_mask = batch.tag_mask
         
         self.length = [len(utt) for utt in batch.utt]
-        encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True, max_length = max(self.length), return_tensors='pt').to(self.device)
+        encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True, 
+                                        max_length = max(self.length), return_tensors='pt').to(self.device)
                 
         # hiddens = self.model(**encoded_inputs).last_hidden_state
         hiddens = self.model(**encoded_inputs).hidden_states[-1]
