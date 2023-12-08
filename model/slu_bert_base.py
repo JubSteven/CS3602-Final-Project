@@ -1,6 +1,17 @@
 import torch
 import torch.nn as nn
 from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModelForMaskedLM
+
+def set_model(model):
+    assert model in ["bert-base-chinese", "MiniRBT-h256-pt"]
+    if model == "bert-base-chinese":
+        tokenizer = BertTokenizer.from_pretrained(model, output_hidden_states=True)
+        model = BertModel.from_pretrained(model)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(model)
+        model = AutoModelForMaskedLM.from_pretrained(model, output_hidden_states=True)
+    return tokenizer, model
 
 
 class TaggingFNNDecoder(nn.Module):
@@ -21,15 +32,20 @@ class TaggingFNNDecoder(nn.Module):
         return (prob, )
     
 
-class SLUBertTagging(nn.Module):
+class SLUNaiveBertTagging(nn.Module):
     def __init__(self, cfg):
-        super(SLUBertTagging, self).__init__()
+        super(SLUNaiveBertTagging, self).__init__()
         self.cfg = cfg
-        self.tokenizer = BertTokenizer.from_pretrained(cfg.bert_path)
         self.device = cfg.device
         self.num_tags = cfg.num_tags
-        self.model = BertModel.from_pretrained(cfg.bert_path).to(self.device)
-        self.output_layer = TaggingFNNDecoder(cfg.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        self.model_type = cfg.encoder_cell
+        # self.tokenizer = BertTokenizer.from_pretrained(cfg.bert_path)
+        # self.model = BertModel.from_pretrained(cfg.bert_path).to(self.device)
+        
+        self.tokenizer, self.model = set_model(self.model_type)
+        self.model.to(self.device)
+        
+        self.output_layer = TaggingFNNDecoder(self.model.hidden_size, self.num_tags, cfg.tag_pad_idx)
         
     def forward(self, batch):
         """
@@ -39,9 +55,10 @@ class SLUBertTagging(nn.Module):
         tag_mask = batch.tag_mask
         
         self.length = [len(utt) for utt in batch.utt]
-        encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True, max_length=max(self.length), return_tensors='pt').to(self.device)
+        encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True, max_length = max(self.length), return_tensors='pt').to(self.device)
                 
-        hiddens = self.model(**encoded_inputs).last_hidden_state
+        # hiddens = self.model(**encoded_inputs).last_hidden_state
+        hiddens = self.model(**encoded_inputs).hidden_states[-1]
         
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, F]
