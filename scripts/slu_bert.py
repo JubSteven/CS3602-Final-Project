@@ -28,6 +28,7 @@ print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU 
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
+# train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path)
@@ -68,13 +69,13 @@ def decode(choice):
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
             for j in range(len(current_batch)):
-                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]):
+                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]): # if the predicted value is not in the sentence, then it is logged here
                     print(current_batch.utt[j], pred[j], label[j])
             predictions.extend(pred)
             labels.extend(label)
             total_loss += loss
             count += 1
-        metrics = Example.evaluator.acc(predictions, labels)
+        metrics = Example.evaluator.acc(predictions, labels) # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count

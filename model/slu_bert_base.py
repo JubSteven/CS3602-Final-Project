@@ -12,6 +12,7 @@ class TaggingFNNDecoder(nn.Module):
         self.num_tags = num_tags
         self.output_layer = nn.Linear(input_size, num_tags)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
+        # print("num_tags = ", num_tags) , 74
 
     def forward(self, hiddens, mask, labels=None):
         logits = self.output_layer(hiddens)
@@ -79,8 +80,8 @@ class SLUNaiveBertTagging(nn.Module):
 
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, F]
-        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)
-
+        tag_output = self.output_layer(hiddens, tag_mask, tag_ids) # tagoutput[0] is the prob, tagoutput[1] is the loss
+        # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
         return tag_output
 
     def decode(self, label_vocab, batch):
@@ -89,10 +90,12 @@ class SLUNaiveBertTagging(nn.Module):
         output = self.forward(batch)
         prob = output[0]
         predictions = []
+
         for i in range(batch_size):
             pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
+            # batch.utt[i] composed of a list of sentences
             pred = pred[:len(batch.utt[i])] # the length of the sentence i in the batch, like [61, 2, 55, 14, 7, 63, 26, 42, 32, 32, 15, 29, 21, 15, 52, 52, 21, 6, 26, 42]
             for idx, tid in enumerate(pred):
                 tag = label_vocab.convert_idx_to_tag(tid) # ex: I-deny-出行方式
@@ -113,7 +116,6 @@ class SLUNaiveBertTagging(nn.Module):
                 slot = '-'.join(tag_buff[0].split('-')[1:])
                 value = ''.join([batch.utt[i][j] for j in idx_buff])
                 pred_tuple.append(f'{slot}-{value}')
-
             predictions.append(pred_tuple)
 
         if len(output) == 1:

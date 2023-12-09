@@ -59,7 +59,7 @@ class LabelVocab():
         self.from_filepath(root)
 
     def from_filepath(self, root):
-        # fully loaded tag2idx and idx2tag dicts
+        # loaded tag2idx and idx2tag dicts
         ontology = json.load(open(os.path.join(root, 'ontology.json'), 'r'))
         acts = ontology['acts']
         slots = ontology['slots']
