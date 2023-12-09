@@ -8,7 +8,7 @@ def from_example_list(args, ex_list, device='cpu', train=True):
     pad_idx = args.pad_idx
     tag_pad_idx = args.tag_pad_idx
 
-    batch.utt = [ex.utt for ex in ex_list]
+    batch.utt = [ex.utt for ex in ex_list] # sentences in a batch
     input_lens = [len(ex.input_idx) for ex in ex_list]
     max_len = max(input_lens)
     input_ids = [ex.input_idx + [pad_idx] * (max_len - len(ex.input_idx)) for ex in ex_list]

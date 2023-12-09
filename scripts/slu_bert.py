@@ -1,6 +1,11 @@
 #coding=utf8
 import sys, os, time, gc, json
 from torch.optim import Adam
+# current_dir = os.getcwd()
+# root = os.path.dirname(current_dir)
+# os.chdir(root)
+# change the working path to the root of the project
+
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(install_path)
@@ -102,7 +107,7 @@ if not args.testing:
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
-    train_index, step_size = np.arange(nsamples), args.batch_size
+    train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
     for i in range(args.max_epoch):
         start_time = time.time()
@@ -110,9 +115,9 @@ if not args.testing:
         np.random.shuffle(train_index)
         model.train()
         count = 0
-        trainbar = tqdm(range(0, nsamples, step_size))
+        trainbar = tqdm(range(0, nsamples, batch_size))
         for j, _ in enumerate(trainbar):
-            cur_dataset = [train_dataset[k] for k in train_index[j: j + step_size]]
+            cur_dataset = [train_dataset[k] for k in train_index[j: j + batch_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
             epoch_loss += loss.item()

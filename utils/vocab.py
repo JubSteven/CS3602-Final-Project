@@ -51,7 +51,7 @@ class LabelVocab():
 
     def __init__(self, root):
         self.tag2idx, self.idx2tag = {}, {}
-
+        # initialize the tag2idx and idx2tag dicts with PAD and O
         self.tag2idx[PAD] = 0
         self.idx2tag[0] = PAD
         self.tag2idx['O'] = 1
@@ -59,6 +59,7 @@ class LabelVocab():
         self.from_filepath(root)
 
     def from_filepath(self, root):
+        # fully loaded tag2idx and idx2tag dicts
         ontology = json.load(open(os.path.join(root, 'ontology.json'), 'r'))
         acts = ontology['acts']
         slots = ontology['slots']

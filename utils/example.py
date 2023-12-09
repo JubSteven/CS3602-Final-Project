@@ -18,7 +18,7 @@ class Example():
         dataset = json.load(open(data_path, 'r'))
         examples = []
         for di, data in enumerate(dataset):
-            for ui, utt in enumerate(data):
+            for ui, utt in enumerate(data): # utt is a dict here
                 ex = cls(utt, f'{di}-{ui}')
                 examples.append(ex)
         return examples
@@ -42,7 +42,7 @@ class Example():
             if bidx != -1:
                 self.tags[bidx: bidx + len(value)] = [f'I-{slot}'] * len(value)
                 self.tags[bidx] = f'B-{slot}'
-        self.slotvalue = [f'{slot}-{value}' for slot, value in self.slot.items()]
+        self.slotvalue = [f'{slot}-{value}' for slot, value in self.slot.items()] # might have multiple slot-value pairs
         self.input_idx = [Example.word_vocab[c] for c in self.utt]
         l = Example.label_vocab
         self.tag_id = [l.convert_tag_to_idx(tag) for tag in self.tags]
