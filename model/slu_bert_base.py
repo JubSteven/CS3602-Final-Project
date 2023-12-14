@@ -56,23 +56,26 @@ class LexionAdapter(nn.Module):
         # If we use the given word2vec-768.txt, then E is 768.
         input_word_embeddings = self.word_embed(input_word_id) # [B, L, E] -> [B, L, D]
         
+        # TODO. generate a list of size [B, L, W, D]. Truncate the original sentence into different combinations. For each combination of words, add the combination assigned for each word.
+        
+        
         # transform
-        word_outputs = self.word_transform(input_word_embeddings)  # [B, L, D]
+        word_outputs = self.word_transform(input_word_embeddings)  # [B, L, W, D]
         word_outputs = self.tanh(word_outputs)
         word_outputs = self.word_word_weight(word_outputs)
-        word_outputs = self.dropout(word_outputs) # [B, L, L]
+        word_outputs = self.dropout(word_outputs)
 
-        alpha = torch.matmul(layer_output, self.attn_W)
-        alpha = torch.matmul(alpha, torch.transpose(word_outputs, 1, 2))  # [B, L, L]
+        alpha = torch.matmul(layer_output.unsqueeze(2), self.attn_W) # [B, L, 1, D]
+        alpha = torch.matmul(alpha, torch.transpose(word_outputs, 2, 3))  # [B, L, 1, W]
+        alpha = alpha.squeeze() # [B, L, W]
         
         # ! I don't know what it is used for. Input_word_mask should be OK for None.
         # alpha = alpha + (1 - input_word_mask.float()) * (-10000.0)
         
-        alpha = torch.nn.Softmax(dim=-1)(alpha)  # [B, L, L]
-        
+        alpha = torch.nn.Softmax(dim=-1)(alpha)  # [B, L, W]
+        alpha = alpha.unsqueeze(-1)
 
-        weighted_word_embedding = alpha * word_outputs  # [B, D, L]
-        weighted_word_embedding = weighted_word_embedding.view(-1, weighted_word_embedding.shape[2], weighted_word_embedding.size[1]) # [N, L, D]
+        weighted_word_embedding = torch.sum(word_outputs * alpha, dim=2) # [B, L, D]
         layer_output = layer_output + weighted_word_embedding
 
         layer_output = self.dropout(layer_output)
