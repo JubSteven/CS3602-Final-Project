@@ -73,6 +73,7 @@ class TaggingFNNDecoder(nn.Module):
     def __init__(self, input_size, num_tags, pad_id):
         super(TaggingFNNDecoder, self).__init__()
         self.num_tags = num_tags
+
         self.output_layer = nn.Linear(input_size, num_tags)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
 

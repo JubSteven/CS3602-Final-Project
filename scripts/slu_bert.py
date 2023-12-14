@@ -1,6 +1,11 @@
 #coding=utf8
 import sys, os, time, gc, json
 from torch.optim import Adam
+# current_dir = os.getcwd()
+# root = os.path.dirname(current_dir)
+# os.chdir(root)
+# change the working path to the root of the project
+
 
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(install_path)
@@ -23,6 +28,7 @@ print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU 
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
+# train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path)
@@ -65,11 +71,14 @@ def decode(choice):
             # for j in range(len(current_batch)):
             #     if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]):
             #         print(current_batch.utt[j], pred[j], label[j])
+            for j in range(len(current_batch)):
+                if any([l.split('-')[-1] not in current_batch.utt[j] for l in pred[j]]): # if the predicted value is not in the sentence, then it is logged here
+                    print(current_batch.utt[j], pred[j], label[j])
             predictions.extend(pred)
             labels.extend(label)
             total_loss += loss
             count += 1
-        metrics = Example.evaluator.acc(predictions, labels)
+        metrics = Example.evaluator.acc(predictions, labels) # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count
@@ -102,7 +111,7 @@ if not args.testing:
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
-    train_index, step_size = np.arange(nsamples), args.batch_size
+    train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
     for i in range(args.max_epoch):
         start_time = time.time()
@@ -110,9 +119,9 @@ if not args.testing:
         np.random.shuffle(train_index)
         model.train()
         count = 0
-        trainbar = tqdm(range(0, nsamples, step_size))
+        trainbar = tqdm(range(0, nsamples, batch_size))
         for j, _ in enumerate(trainbar):
-            cur_dataset = [train_dataset[k] for k in train_index[j: j + step_size]]
+            cur_dataset = [train_dataset[k] for k in train_index[j: j + batch_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
             epoch_loss += loss.item()
