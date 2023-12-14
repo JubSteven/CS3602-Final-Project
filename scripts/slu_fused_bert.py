@@ -15,7 +15,7 @@ from utils.initialization import *
 from utils.example import Example
 from utils.batch import from_example_list
 from utils.vocab import PAD
-from model.slu_bert_base import SLUNaiveBertTagging
+from model.slu_bert_base import SLUFusedBertTagging
 from tqdm import tqdm
 
 # initialization params, output path, logger, random seed and torch.device
@@ -41,8 +41,8 @@ args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
-model = SLUNaiveBertTagging(args).to(device)
-Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
+model = SLUFusedBertTagging(args).to(device)
+Example.word2vec.load_embeddings(model.LA_layer.word_embed, Example.word_vocab, device=device)
 
 if args.testing:
     check_point = torch.load(open('model.bin', 'rb'), map_location=device)

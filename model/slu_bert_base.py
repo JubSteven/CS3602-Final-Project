@@ -30,44 +30,49 @@ class LexionAdapter(nn.Module):
         Adapted from https://github.com/liuwei1206/LEBERT/blob/main/wcbert_modeling.py
     """
     
-    def __init__(self, config):
+    def __init__(self, bertConfig):
         super(LexionAdapter, self).__init__()
         self.dropout = nn.Dropout(0.2)
         self.tanh = nn.Tanh()
         
-        self.word_transform = nn.Linear(config.word_embed_dim, config.hidden_size)
-        self.word_word_weight = nn.Linear(config.hidden_size, config.hidden_size)
-        attn_W = torch.zeros(config.hidden_size, config.hidden_size)
+        self.word_embed = nn.Embedding(bertConfig.word2vec_vocab_size, bertConfig.word2vec_embed_size, padding_idx=0)
+        
+        self.word_transform = nn.Linear(bertConfig.word2vec_embed_size, bertConfig.hidden_size)
+        self.word_word_weight = nn.Linear(bertConfig.hidden_size, bertConfig.hidden_size)
+        attn_W = torch.zeros(bertConfig.hidden_size, bertConfig.hidden_size)
         self.attn_W = nn.Parameter(attn_W)
-        self.attn_W.data.normal_(mean=0.0, std=config.initializer_range)
-        self.fuse_layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.attn_W.data.normal_(mean=0.0, std=bertConfig.initializer_range)
+        self.fuse_layernorm = nn.LayerNorm(bertConfig.hidden_size, eps=bertConfig.layer_norm_eps)
         
     
-    def forward(self, input_word_embeddings, layer_output, input_word_mask=None):
+    def forward(self, input_word_id, layer_output):
         """
             Inputs:
-            input_word_embeddings: 
-            layer_output: 
+            input_word: transformed into word2vec ids, which should be already padded of size [B, L]
+            layer_output: The result of a hidden layer of size [B, L, D] where L is the padded length and D is the feature dim.
         """
+        # get the word_vec.
+        # [B, L, E] where E is word2vec_embed_size.
+        # If we use the given word2vec-768.txt, then E is 768.
+        input_word_embeddings = self.word_embed(input_word_id) # [B, L, E] -> [B, L, D]
         
         # transform
-        word_outputs = self.word_transform(input_word_embeddings)  # [N, L, W, D]
+        word_outputs = self.word_transform(input_word_embeddings)  # [B, L, D]
         word_outputs = self.tanh(word_outputs)
         word_outputs = self.word_word_weight(word_outputs)
-        word_outputs = self.dropout(word_outputs)
+        word_outputs = self.dropout(word_outputs) # [B, L, L]
 
-        # attention_output = attention_output.unsqueeze(2) # [N, L, D] -> [N, L, 1, D]
-        alpha = torch.matmul(layer_output.unsqueeze(2), self.attn_W)  # [N, L, 1, D]
-        alpha = torch.matmul(alpha, torch.transpose(word_outputs, 2, 3))  # [N, L, 1, W]
-        alpha = alpha.squeeze()  # [N, L, W]
+        alpha = torch.matmul(layer_output, self.attn_W)
+        alpha = torch.matmul(alpha, torch.transpose(word_outputs, 1, 2))  # [B, L, L]
         
         # ! I don't know what it is used for. Input_word_mask should be OK for None.
-        alpha = alpha + (1 - input_word_mask.float()) * (-10000.0)
+        # alpha = alpha + (1 - input_word_mask.float()) * (-10000.0)
         
-        alpha = torch.nn.Softmax(dim=-1)(alpha)  # [N, L, W]
-        alpha = alpha.unsqueeze(-1)  # [N, L, W, 1]
+        alpha = torch.nn.Softmax(dim=-1)(alpha)  # [B, L, L]
         
-        weighted_word_embedding = torch.sum(word_outputs * alpha, dim=2)  # [N, L, D]
+
+        weighted_word_embedding = alpha * word_outputs  # [B, D, L]
+        weighted_word_embedding = weighted_word_embedding.view(-1, weighted_word_embedding.shape[2], weighted_word_embedding.size[1]) # [N, L, D]
         layer_output = layer_output + weighted_word_embedding
 
         layer_output = self.dropout(layer_output)
@@ -91,6 +96,8 @@ class SLUFusedBertTagging(nn.Module):
         else:
             self.hidden_size = 256
 
+        # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
+        self.LA_layer = LexionAdapter(self.bertConfig)
         self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
 
     def set_model(self):
@@ -115,7 +122,11 @@ class SLUFusedBertTagging(nn.Module):
             self.model = AutoModelForMaskedLM.from_pretrained(self.model_type, output_hidden_states=True).to(
                 self.device)
         
-        self.config = BertConfig.from_pretrained(self.model_type)
+        self.bertConfig = BertConfig.from_pretrained(self.model_type)
+        
+        # Similar to the baseline, add the key attributes here.
+        self.bertConfig.word2vec_embed_size = self.cfg.embed_size
+        self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
 
     def forward(self, batch):
         """
@@ -123,16 +134,20 @@ class SLUFusedBertTagging(nn.Module):
         """
         tag_ids = batch.tag_ids
         tag_mask = batch.tag_mask
+        input_word2vec_ids = batch.input_ids # already padded
 
         self.length = [len(utt) for utt in batch.utt]
         encoded_inputs = self.tokenizer(batch.utt, padding="max_length", truncation=True,
                                         max_length=max(self.length), return_tensors='pt').to(self.device)
 
-        # hiddens = self.model(**encoded_inputs).last_hidden_state
         hiddens = self.model(**encoded_inputs).hidden_states[-1]
+        
+
+        fused_hiddens = self.LA_layer(input_word2vec_ids, hiddens)        
+        
 
         # Return the padded sentence (shape)
-        # [B, MAX_LENGTH, F]
+        # [B, MAX_LENGTH, D]
         tag_output = self.output_layer(hiddens, tag_mask, tag_ids) # tagoutput[0] is the prob, tagoutput[1] is the loss
         # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
         return tag_output
