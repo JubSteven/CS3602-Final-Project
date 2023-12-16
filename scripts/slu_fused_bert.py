@@ -19,11 +19,16 @@ from tqdm import tqdm
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
-set_random_seed(args.seed)
-device = set_torch_device(args.device)
 print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
+set_random_seed(args.seed)
+
+if args.device == -1:
+    args.device = "cpu"
+    device = "cpu"
+else:
+    device = set_torch_device(args.device)
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
@@ -40,6 +45,7 @@ args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
+print("device", device)
 model = SLUFusedBertTagging(args).to(device)
 
 if args.testing:
@@ -124,7 +130,13 @@ if not args.testing:
             optimizer.zero_grad()
             count += 1
 
-            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f}")
+            if j % 50 == 0:
+                metrics, dev_loss = decode('dev')
+                dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
+
+            trainbar.set_description(
+                f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
+            )
         torch.cuda.empty_cache()
         gc.collect()
 

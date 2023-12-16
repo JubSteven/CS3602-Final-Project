@@ -1,15 +1,23 @@
 import jieba
 import logging
+
+import numpy as np
 from text2vec import SentenceModel
 import os
 import torch
+from accelerate import Accelerator
+accelerator = Accelerator()
 import time
 
-os.environ['CURL_CA_BUNDLE'] = ''
-os.environ["http_proxy"] = "http://127.0.0.1:1080"
-os.environ["https_proxy"] = "http://127.0.0.1:1080"
+
+device = "mps"
+
+# os.environ['CURL_CA_BUNDLE'] = ''
+# os.environ["http_proxy"] = "http://127.0.0.1:1080"
+# os.environ["https_proxy"] = "http://127.0.0.1:1080"
 
 sentences = ["你好世界", "美国人民", "如果一个字在一句话中出现了不止一次", "我原本以为两个字就是两个向量拼一起"]
+
 
 
 # >>>>>>@pengxiang added on 12.15
@@ -71,12 +79,32 @@ def word_embed(char_word_pair):
     """
 
     model = SentenceModel()
+    model, char_word_pair = accelerator.prepare(model, char_word_pair)
+    # print(char_word_pair)
+    words_to_encode = [word for pair_list in char_word_pair for pair in pair_list for word in pair if word]
+    # 批量编码
+    encoded_words = model.encode(words_to_encode)
+    # print(encoded_words.shape) # 57, 768
+
+    # 处理空字符串的情况
+    default_vector = model.encode("")  # 假设模型有一个方法来获取嵌入维度
+    # print(default_vector)
+
+    # 将编码结果分配回原始数据结构
+    idx = 0
     for pair_list in char_word_pair:
         for pair in pair_list:
             for i in range(len(pair)):
-                pair[i] = model.encode(pair[i])
+                if pair[i]:
+                    pair[i] = encoded_words[idx]
+                    idx += 1
+                else:
+                    pair[i] = default_vector
 
-    embedded_char_word_pair = torch.Tensor(char_word_pair)
+    # 转换为张量
+    embedded_char_word_pair = torch.Tensor(np.array(char_word_pair))
+
+    # print(embedded_char_word_pair.shape)
     return embedded_char_word_pair
 
 

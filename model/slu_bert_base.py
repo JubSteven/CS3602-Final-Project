@@ -6,7 +6,8 @@ import jieba
 from text2vec import SentenceModel
 import logging
 import numpy as np
-
+from accelerate import Accelerator
+accelerator = Accelerator()
 
 class TaggingFNNDecoder(nn.Module):
 
@@ -104,13 +105,32 @@ class LexionAdapter(nn.Module):
         Args:
             char_word_pair (list [list [list]]): [[["美国"], ["美国"], ["人民"], ["人民"], [""]] ..]
         """
+        # model, char_word_pair = Accelerator.prepare(self.text_embed, char_word_pair)
+        model = self.text_embed
+        # print(char_word_pair)
+        words_to_encode = [word for pair_list in char_word_pair for pair in pair_list for word in pair if word]
+        # 批量编码
+        encoded_words = model.encode(words_to_encode)
 
+        # 处理空字符串的情况
+        default_vector = model.encode("")  # 假设模型有一个方法来获取嵌入维度
+        # print(default_vector)
+
+        # 将编码结果分配回原始数据结构
+        idx = 0
         for pair_list in char_word_pair:
             for pair in pair_list:
                 for i in range(len(pair)):
-                    pair[i] = self.text_embed.encode(pair[i])
+                    if pair[i]:
+                        pair[i] = encoded_words[idx]
+                        idx += 1
+                    else:
+                        pair[i] = default_vector
 
+        # 转换为张量
         embedded_char_word_pair = torch.Tensor(np.array(char_word_pair))
+
+        # print(embedded_char_word_pair.shape)
         return embedded_char_word_pair
 
     def process_sentence(self, input_sentence):
