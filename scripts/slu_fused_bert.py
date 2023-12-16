@@ -60,7 +60,7 @@ if args.testing:
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
     grouped_params = [{'params': list(set([p for n, p in params]))}]
-    optimizer = Adam(grouped_params, lr=args.lr)
+    optimizer = Adam(grouped_params, lr=args.lr, weight_decay=args.weight_decay)
     return optimizer
 
 
@@ -140,7 +140,7 @@ if not args.testing:
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
 
             trainbar.set_description(
-                f"Epoch: {i} | L: {epoch_loss / count:.2f}| Best_Acc: {best_result['dev_acc']:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
+                f"Epoch: {i} | L: {epoch_loss / count:.2f}| Best_Acc: {best_result['dev_acc']:.2f} | Acc: {dev_acc:.2f} | P: {dev_fscore['precision']:.2f} | R: {dev_fscore['recall']:.2f}| F: {dev_fscore['fscore']:.2f}"
             )
         torch.cuda.empty_cache()
         gc.collect()
@@ -150,12 +150,13 @@ if not args.testing:
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
                 'iter'] = dev_loss, dev_acc, dev_fscore, i
             model_name = f"{model_time_stramp}_devacc={dev_acc}_gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
-            torch.save({
-                'epoch': i,
-                'model': model.state_dict(),
-                'optim': optimizer.state_dict(),
-                'results': best_result,
-            }, open(model_name, 'wb'))
+            torch.save(
+                {
+                    'epoch': i,
+                    'model': model.state_dict(),
+                    'optim': optimizer.state_dict(),
+                    'results': best_result,
+                }, open(model_name, 'wb'))
             # print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
     print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
