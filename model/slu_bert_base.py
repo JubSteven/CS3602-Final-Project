@@ -37,12 +37,18 @@ class RNNTaggingDecoder(nn.Module):
         assert model_type in ["LSTM", "GRU", "RNN"], 'model_type should be one of "LSTM", "GRU", "RNN"'
 
         self.num_tags = num_tags
-        self.output_layer = getattr(nn, model_type)(input_size, num_tags, num_layers=num_layers, bidirectional=False)
+        self.feat_dim = 100
+        self.output_layer = getattr(nn, model_type)(input_size,
+                                                    self.feat_dim,
+                                                    num_layers=num_layers,
+                                                    bidirectional=True)
+        self.linear_layer = nn.Linear(self.feat_dim * 2, num_tags)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
         # print("num_tags = ", num_tags) , 74
 
     def forward(self, hiddens, mask, labels=None):
         logits, _ = self.output_layer(hiddens)
+        logits = self.linear_layer(logits)
         logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
         prob = torch.softmax(logits, dim=-1)
         if labels is not None:
