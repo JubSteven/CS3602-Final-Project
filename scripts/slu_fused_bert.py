@@ -16,7 +16,7 @@ from utils.batch import from_example_list
 from utils.vocab import PAD
 from model.slu_bert_base import SLUFusedBertTagging
 from tqdm import tqdm
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import MultiStepLR
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
@@ -111,7 +111,7 @@ if not args.testing:
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
-    scheduler = StepLR(optimizer, step_size=args.decay_step, gamma=args.gamma)
+    scheduler = MultiStepLR(optimizer, milestones=args.decay_step, gamma=args.gamma)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
@@ -130,6 +130,7 @@ if not args.testing:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+            scheduler.step()
             count += 1
 
             if j % 50 == 0:
