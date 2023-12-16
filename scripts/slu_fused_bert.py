@@ -89,11 +89,15 @@ def decode(choice, wrong_examples_tag=None):
     with torch.no_grad():
         wrong_examples = dict()
         for i in range(0, len(dataset), args.batch_size):
+            batch_labels = []
+            batch_preds = []
             cur_dataset = dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
             predictions.extend(pred)
             labels.extend(label)
+            batch_preds.extend(pred)
+            batch_labels.extend(label)
             total_loss += loss
             count += 1
 
@@ -101,8 +105,8 @@ def decode(choice, wrong_examples_tag=None):
                 wrong_examples[i // args.batch_size] = []
                 for k in range(len(current_batch.utt)):
                     sentence = current_batch.utt[k]
-                    pred = predictions[k]
-                    label = labels[k]
+                    pred = batch_preds[k]
+                    label = batch_labels[k]
 
                     if set(pred) != set(label):
                         example = {"sentence": sentence, "pred": pred, "label": label}
@@ -111,7 +115,7 @@ def decode(choice, wrong_examples_tag=None):
             save_path = os.path.join(root_path, "wrong_examples", args.expri + '_' + time_stramp)
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            print(wrong_examples)
+            # print(wrong_examples)
             with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
                       encoding='utf-8') as file:
                 json.dump(wrong_examples, file, ensure_ascii=False, indent=4)
