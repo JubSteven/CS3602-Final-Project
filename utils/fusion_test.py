@@ -14,14 +14,14 @@ class BertHiddenGroupFusion(nn.Module):
             nn.GELU(),
             nn.LayerNorm(768)
         )
-        self.self_attention = nn.MultiheadAttention(embed_dim=768, num_heads=8)
+        self.self_attention = nn.MultiheadAttention(embed_dim=768, num_heads=3)
         self.residual = nn.Linear(768, 768)
 
     def forward(self, x):
         batch_size = x.size(0)
-        output = torch.zeros(batch_size, 8, 26, 768, device=x.device)
+        output = torch.zeros(batch_size, 3, 26, 768, device=x.device)
 
-        for i in range(8):
+        for i in range(3):
             group = x[:, i * 4:(i + 1) * 4, :, :]
             group = group.view(batch_size, 26, -1)
             fused = self.fusion_mlp(group)
@@ -45,7 +45,7 @@ model = BertHiddenGroupFusion()
 
 # 创建一个示例输入张量，大小为 [batch_size, 32, 26, 768]
 # 假设batch_size为1
-example_input = torch.randn(4, 32, 26, 768)
+example_input = torch.randn(4, 12, 26, 768)
 
 # 通过模型传递输入并获取输出
 output = model(example_input)
