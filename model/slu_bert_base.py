@@ -216,12 +216,15 @@ class SLUFusedBertTagging(nn.Module):
         self.model_type = cfg.encoder_cell
         self.set_model()
 
-
         self.hidden_size = self.bertConfig.hidden_size
 
         # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
         self.LA_layer = LexionAdapter(self.bertConfig)
-        self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+
+        if cfg.decoder == "FNN":
+            self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        else:
+            self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
