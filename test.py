@@ -9,6 +9,9 @@ from accelerate import Accelerator
 accelerator = Accelerator()
 import time
 
+
+device = "mps"
+
 # os.environ['CURL_CA_BUNDLE'] = ''
 # os.environ["http_proxy"] = "http://127.0.0.1:1080"
 # os.environ["https_proxy"] = "http://127.0.0.1:1080"

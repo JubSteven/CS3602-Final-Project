@@ -19,11 +19,16 @@ from tqdm import tqdm
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
-set_random_seed(args.seed)
-device = set_torch_device(args.device)
 print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
+set_random_seed(args.seed)
+
+if args.device == -1:
+    args.device = "cpu"
+    device = "cpu"
+else:
+    device = set_torch_device(args.device)
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train.json')
@@ -40,6 +45,7 @@ args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
+print("device", device)
 model = SLUFusedBertTagging(args).to(device)
 
 if args.testing:
@@ -115,7 +121,7 @@ if not args.testing:
         count = 0
         trainbar = tqdm(range(0, nsamples, batch_size))
         for j, _ in enumerate(trainbar):
-            cur_dataset = [train_dataset[k] for k in train_index[j:j + batch_size]]
+            cur_dataset = [train_dataset[k] for k in train_index[j: j + batch_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
             epoch_loss += loss.item()
@@ -124,36 +130,26 @@ if not args.testing:
             optimizer.zero_grad()
             count += 1
 
-            if j % 100 == 0 and j != 0:
+            if j % 50 == 0:
                 metrics, dev_loss = decode('dev')
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-            else:
-                dev_loss, dev_acc, dev_fscore = 0, 0, {'precision': 0, 'recall': 0, 'fscore': 0}
 
-            trainbar.set_description(
-                f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
-            )
+            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}")
         torch.cuda.empty_cache()
         gc.collect()
 
         if dev_acc > best_result['dev_acc']:
-            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
-                'iter'] = dev_loss, dev_acc, dev_fscore, i
+            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result['iter'] = dev_loss, dev_acc, dev_fscore, i
             torch.save({
-                'epoch': i,
-                'model': model.state_dict(),
+                'epoch': i, 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
             }, open('model.bin', 'wb'))
             # print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
-    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
-          (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
-           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
+    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' % (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'], best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 else:
     start_time = time.time()
     metrics, dev_loss = decode('dev')
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     predict()
-    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
-          (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
-           dev_fscore['fscore']))
+    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" % (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
