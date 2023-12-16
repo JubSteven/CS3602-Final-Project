@@ -124,17 +124,13 @@ if not args.testing:
             optimizer.zero_grad()
             count += 1
 
-            if j % 100 == 0 and j != 0:
-                metrics, dev_loss = decode('dev')
-                dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-            else:
-                dev_loss, dev_acc, dev_fscore = 0, 0, {'precision': 0, 'recall': 0, 'fscore': 0}
-
-            trainbar.set_description(
-                f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
-            )
+            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f}")
         torch.cuda.empty_cache()
         gc.collect()
+
+        metrics, dev_loss = decode('dev')
+        dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
+        print(dev_acc, dev_fscore['fscore'], dev_fscore['precision'], dev_fscore['recall'])
 
         if dev_acc > best_result['dev_acc']:
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[

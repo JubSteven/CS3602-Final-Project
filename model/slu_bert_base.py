@@ -156,6 +156,42 @@ class LexionAdapter(nn.Module):
         return layer_output
 
 
+# >>>>@benhao added on 12.14, @pengxiang modified it to fit the current structure.
+class BertHiddenGroupFusion(nn.Module):
+
+    def __init__(self, hidden_feat_dim, hidden_num, num_heads=4):
+        """
+            hidden_feat_dim: The dimension of the hidden features.
+            hidden_num: The number of layers in a group.
+            num_heads: The number of heads in the self-attention module.
+        """
+        super(BertHiddenGroupFusion, self).__init__()
+        self.fusion_mlp = nn.Sequential(nn.Linear(hidden_feat_dim * hidden_num, 1024), nn.GELU(), nn.LayerNorm(1024),
+                                        nn.Linear(1024, hidden_feat_dim), nn.GELU(), nn.LayerNorm(hidden_feat_dim))
+        self.self_attention = nn.MultiheadAttention(embed_dim=hidden_feat_dim, num_heads=num_heads)
+        self.residual = nn.Linear(hidden_feat_dim, hidden_feat_dim)
+
+    def forward(self, x):
+        """
+            x should be of shape [C, B, L, D*N], 
+            where N is the number of hidden layers in a group
+            and C is the number of groups.
+        """
+        C, B, L = x.shape[:3]
+        fused = self.fusion_mlp(x)
+
+        # Residual connection
+        residual = self.residual(fused)
+        fused = fused + residual  # [C, B, L, D]
+
+        # Self-attention mechanism
+        fused = fused.view(C * B, L, -1).transpose(0, 1)
+        attn_output, _ = self.self_attention(fused, fused, fused)
+        attn_output = attn_output.view(C, B, L, -1)
+
+        return attn_output
+
+
 class SLUFusedBertTagging(nn.Module):
 
     def __init__(self, cfg):
@@ -166,15 +202,18 @@ class SLUFusedBertTagging(nn.Module):
         self.model_type = cfg.encoder_cell
         self.set_model()
 
-        # TODO can polish a bit here
-        if self.model_type == "bert-base-chinese" or "MacBERT-base" or "roberta-base":
-            self.hidden_size = 768
-        else:
-            self.hidden_size = 256
+        self.hidden_size = self.bertConfig.hidden_size
+        self.num_hidden_layers = self.bertConfig.num_hidden_layers
+        self.group_num = self.num_hidden_layers // 4
 
-        # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
+        self.hidden_fusion_layer = BertHiddenGroupFusion(self.hidden_size, 4)
         self.LA_layer = LexionAdapter(self.bertConfig)
+        self.LA_fusion_layer = nn.Linear(self.hidden_size * self.group_num, self.hidden_size)
         self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+
+        # Log the total number of parameters in the model.
+        total_params = sum(p.numel() for p in self.parameters()) / (1024 * 1024)
+        print(f'Model Initialized. Total number of parameters: {total_params}M')
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
@@ -204,13 +243,25 @@ class SLUFusedBertTagging(nn.Module):
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
 
+    def fuse_hidden(self, hidden_states):
+        B = hidden_states[0].shape[0]
+        L = hidden_states[0].shape[1]
+        hidden_states = torch.stack(hidden_states).view(self.group_num, B, L, -1)
+
+        fused_hidden_states = self.hidden_fusion_layer(hidden_states)
+        return fused_hidden_states
+
+    def fuse_LA(self, LA_states):
+        B = LA_states[0].shape[0]
+        L = LA_states[0].shape[1]
+        LA_states = LA_states.view(B, L, -1)  # [B, L, F * group_num]
+        fused_LA_states = self.LA_fusion_layer(LA_states)
+        return fused_LA_states
+
     def forward(self, batch):
-        """
-            Here batch is a list of original sentences
-        """
+
         tag_ids = batch.tag_ids
         tag_mask = batch.tag_mask
-        input_word2vec_ids = batch.input_ids  # already padded
 
         self.length = [len(utt) for utt in batch.utt]
         encoded_inputs = self.tokenizer(batch.utt,
@@ -219,15 +270,28 @@ class SLUFusedBertTagging(nn.Module):
                                         max_length=max(self.length),
                                         return_tensors='pt').to(self.device)
 
-        hiddens = self.model(**encoded_inputs).hidden_states[-1]
+        hidden_states = self.model(**encoded_inputs).hidden_states[1:]
 
-        fused_hiddens = self.LA_layer(batch.utt, hiddens)
+        assert len(
+            hidden_states) == self.num_hidden_layers, "The number of hidden layers is not equal to the expected value."
+
+        # Here grouping by 4 is fixed. It can be refined.
+        # bert-base-chinese has 13 layers, so we don't consider the first one.
+        fused_hidden_states = self.fuse_hidden(hidden_states)
+
+        LA_states = []
+        for i in range(self.group_num):
+            LA_states.append(self.LA_layer(batch.utt, fused_hidden_states[i]))
+        LA_states = torch.stack(LA_states)
+
+        fused_LA_states = self.fuse_LA(LA_states)
 
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, D]
-        tag_output = self.output_layer(fused_hiddens, tag_mask,
+        tag_output = self.output_layer(fused_LA_states, tag_mask,
                                        tag_ids)  # tagoutput[0] is the prob, tagoutput[1] is the loss
         # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
+
         return tag_output
 
     def decode(self, label_vocab, batch):
