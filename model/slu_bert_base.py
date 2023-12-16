@@ -30,6 +30,27 @@ class TaggingFNNDecoder(nn.Module):
         return (prob,)
 
 
+class RNNTaggingDecoder(nn.Module):
+
+    def __init__(self, input_size, num_tags, pad_id, model_type="GRU", num_layers=1):
+        super(RNNTaggingDecoder, self).__init__()
+        assert model_type in ["LSTM", "GRU", "RNN"], 'model_type should be one of "LSTM", "GRU", "RNN"'
+
+        self.num_tags = num_tags
+        self.output_layer = getattr(nn, model_type)(input_size, num_tags, num_layers=num_layers, bidirectional=False)
+        self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
+        # print("num_tags = ", num_tags) , 74
+
+    def forward(self, hiddens, mask, labels=None):
+        logits, _ = self.output_layer(hiddens)
+        logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
+        prob = torch.softmax(logits, dim=-1)
+        if labels is not None:
+            loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
+            return prob, loss
+        return (prob,)
+
+
 # >>>>>>@pengxiang added the Module on 12.14
 class LexionAdapter(nn.Module):
     """
@@ -192,7 +213,7 @@ class SLUFusedBertTagging(nn.Module):
 
         # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
         self.LA_layer = LexionAdapter(self.bertConfig)
-        self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
