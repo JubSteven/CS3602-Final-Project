@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 import argparse
 import sys
 
@@ -20,7 +20,9 @@ def add_argument_base(arg_parser):
                             default=-1,
                             help='Use which device: -1 -> cpu ; the index of gpu o.w.')
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
-    arg_parser.add_argument('--visualize_path', default="visualization", help = "path to store tensorboard visualization files")
+    arg_parser.add_argument('--visualize_path', default="visualization",
+                            help="path to store tensorboard visualization files")
+    arg_parser.add_argument('--expri', default="empty", help="description of this experiment")
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
     arg_parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
@@ -29,6 +31,8 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay')
     arg_parser.add_argument('--max_epoch', type=int, default=100, help='terminate after maximum epochs')
     arg_parser.add_argument('--fix_rate', type=float, default=0, help='fix rate of the back bone model')
+    arg_parser.add_argument('--get_wrong_examples', type=bool, default=True,
+                            help="save those wrongly labeled sentence examples to local")
     #### Common Encoder Hyperparams ####
     arg_parser.add_argument(
         '--encoder_cell',
@@ -40,6 +44,5 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--hidden_size', default=512, type=int, help='hidden size')
     arg_parser.add_argument('--num_layer', default=2, type=int, help='number of layer')
     return arg_parser
-
 
 # opts = init_args()

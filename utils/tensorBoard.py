@@ -10,7 +10,7 @@ date = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 
 def make_path(args):
     return (
-        f"{date}_max_epoch={args.max_epoch}_bs={args.batch_size}_lr={args.lr}_decay={args.decay_step}_gamma={args.gamma}"
+        f"{args.expri}_{date}_max_epoch={args.max_epoch}_bs={args.batch_size}_lr={args.lr}_decay={args.decay_step}_gamma={args.gamma}"
         f"_encoder={args.encoder_cell}_dropout={args.dropout}"
     )
 

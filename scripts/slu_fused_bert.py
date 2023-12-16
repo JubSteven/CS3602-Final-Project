@@ -1,11 +1,10 @@
 # coding=utf8
 import sys, os, time, gc, json
 from torch.optim import Adam
+from tqdm import tqdm
+import json
 
-root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-model_save_path = os.path.join(root_path, "checkpoints")
-if not os.path.exists(model_save_path):
-    os.makedirs(model_save_path)
+
 # current_dir = os.getcwd()
 # root = os.path.dirname(current_dir)
 # os.chdir(root)
@@ -24,14 +23,25 @@ from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
 from utils.tensorBoard import visualizer
 
+time_stramp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
+
+root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+model_save_path = os.path.join(root_path, "checkpoints", args.expri + '_' + time_stramp)
+if not os.path.exists(model_save_path):
+    os.makedirs(model_save_path)
+
+if args.expri == "empty":
+    print("the name of this experiment is required for clarity!")
+    exit(0)
+
 print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
 set_random_seed(args.seed)
 writer = visualizer(args)  # tensorboard writer
-model_time_stramp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+
 
 if args.device == -1:
     args.device = "cpu"
@@ -70,13 +80,14 @@ def set_optimizer(model, args):
     return optimizer
 
 
-def decode(choice):
+def decode(choice, wrong_examples_tag=None):
     assert choice in ['train', 'dev']
     model.eval()
     dataset = train_dataset if choice == 'train' else dev_dataset
-    predictions, labels = [], []
+    predictions, labels, utts = [], [], []
     total_loss, count = 0, 0
     with torch.no_grad():
+        wrong_examples = dict()
         for i in range(0, len(dataset), args.batch_size):
             cur_dataset = dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
@@ -85,9 +96,31 @@ def decode(choice):
             labels.extend(label)
             total_loss += loss
             count += 1
+
+            if wrong_examples_tag:
+                wrong_examples[i // args.batch_size] = []
+                for k in range(len(current_batch.utt)):
+                    sentence = current_batch.utt[k]
+                    pred = predictions[k]
+                    label = labels[k]
+
+                    if set(pred) != set(label):
+                        example = {"sentence": sentence, "pred": pred, "label": label}
+                        wrong_examples[i // args.batch_size].append(example)
+        if wrong_examples_tag:
+            save_path = os.path.join(root_path, "wrong_examples", args.expri + '_' + time_stramp)
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            print(wrong_examples)
+            with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
+                      encoding='utf-8') as file:
+                json.dump(wrong_examples, file, ensure_ascii=False, indent=4)
         metrics = Example.evaluator.acc(
             predictions, labels
         )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
+
+
+
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count
@@ -142,12 +175,12 @@ if not args.testing:
             count += 1
 
             if j % 50 == 0:
-                metrics, dev_loss = decode('dev')
+                metrics, dev_loss = decode('dev', f"epoch={i}_batch={j}")
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
                 if dev_acc > best_result['dev_acc']:
                     best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
                         'iter'] = dev_loss, dev_acc, dev_fscore, i
-                    model_name = f"{model_time_stramp}_devacc={dev_acc}_gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
+                    model_name = f"devacc={dev_acc}_gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
                     torch.save(
                         {
                             'epoch': i,
