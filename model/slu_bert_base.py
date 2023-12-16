@@ -6,8 +6,7 @@ import jieba
 from text2vec import SentenceModel
 import logging
 import numpy as np
-from accelerate import Accelerator
-accelerator = Accelerator()
+
 
 class TaggingFNNDecoder(nn.Module):
 
@@ -107,7 +106,7 @@ class LexionAdapter(nn.Module):
         """
         # model, char_word_pair = Accelerator.prepare(self.text_embed, char_word_pair)
         model = self.text_embed
-        # print(char_word_pair)
+
         words_to_encode = [word for pair_list in char_word_pair for pair in pair_list for word in pair if word]
         # 批量编码
         encoded_words = model.encode(words_to_encode)
