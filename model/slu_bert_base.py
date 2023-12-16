@@ -6,8 +6,10 @@ import jieba
 from text2vec import SentenceModel
 import logging
 import numpy as np
-from accelerate import Accelerator
-accelerator = Accelerator()
+# from accelerate import Accelerator
+
+# accelerator = Accelerator()
+
 
 class TaggingFNNDecoder(nn.Module):
 
