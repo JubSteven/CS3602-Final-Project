@@ -3,3 +3,4 @@ data/
 MinRBT-h256-pt/
 **.pyc
 __pycache__/
+visualization/
