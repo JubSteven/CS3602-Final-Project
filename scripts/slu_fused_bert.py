@@ -6,7 +6,6 @@ from torch.optim import Adam
 # os.chdir(root)
 # change the working path to the root of the project
 
-
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(install_path)
 
@@ -42,7 +41,6 @@ args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 model = SLUFusedBertTagging(args).to(device)
-Example.word2vec.load_embeddings(model.LA_layer.word_embed, Example.word_vocab, device=device)
 
 if args.testing:
     check_point = torch.load(open('model.bin', 'rb'), map_location=device)
@@ -65,14 +63,16 @@ def decode(choice):
     total_loss, count = 0, 0
     with torch.no_grad():
         for i in range(0, len(dataset), args.batch_size):
-            cur_dataset = dataset[i: i + args.batch_size]
+            cur_dataset = dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
             predictions.extend(pred)
             labels.extend(label)
             total_loss += loss
             count += 1
-        metrics = Example.evaluator.acc(predictions, labels) # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
+        metrics = Example.evaluator.acc(
+            predictions, labels
+        )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count
@@ -85,7 +85,7 @@ def predict():
     predictions = {}
     with torch.no_grad():
         for i in range(0, len(test_dataset), args.batch_size):
-            cur_dataset = test_dataset[i: i + args.batch_size]
+            cur_dataset = test_dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=False)
             pred = model.decode(Example.label_vocab, current_batch)
             for pi, p in enumerate(pred):
@@ -115,7 +115,7 @@ if not args.testing:
         count = 0
         trainbar = tqdm(range(0, nsamples, batch_size))
         for j, _ in enumerate(trainbar):
-            cur_dataset = [train_dataset[k] for k in train_index[j: j + batch_size]]
+            cur_dataset = [train_dataset[k] for k in train_index[j:j + batch_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
             epoch_loss += loss.item()
@@ -123,27 +123,35 @@ if not args.testing:
             optimizer.step()
             optimizer.zero_grad()
             count += 1
-            
+
             if j % 50 == 0:
                 metrics, dev_loss = decode('dev')
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-            
-            trainbar.set_description(f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}")
+
+            trainbar.set_description(
+                f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
+            )
         torch.cuda.empty_cache()
         gc.collect()
 
         if dev_acc > best_result['dev_acc']:
-            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result['iter'] = dev_loss, dev_acc, dev_fscore, i
+            best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
+                'iter'] = dev_loss, dev_acc, dev_fscore, i
             torch.save({
-                'epoch': i, 'model': model.state_dict(),
+                'epoch': i,
+                'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
             }, open('model.bin', 'wb'))
             # print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
-    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' % (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'], best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
+    print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
+          (best_result['iter'], best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1']['precision'],
+           best_result['dev_f1']['recall'], best_result['dev_f1']['fscore']))
 else:
     start_time = time.time()
     metrics, dev_loss = decode('dev')
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     predict()
-    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" % (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
+    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
+          (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
+           dev_fscore['fscore']))
