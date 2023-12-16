@@ -232,7 +232,11 @@ class SLUFusedBertTagging(nn.Module):
 
         # Log the total number of parameters in the model.
         total_params = sum(p.numel() for p in self.parameters()) / (1024 * 1024)
-        print(f'Model Initialized. Total number of parameters: {total_params}M')
+        # Num of trainable parameters
+        trainable_params = sum(p.numel() for p in self.parameters() if p.requires_grad) / (1024 * 1024)
+        print(
+            f'Model Initialized. Total number of parameters: {total_params}M, of which {trainable_params}M are trainable.'
+        )
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
@@ -303,10 +307,11 @@ class SLUFusedBertTagging(nn.Module):
             LA_states.append(self.LA_layer(batch.utt, fused_hidden_states[i]))
         LA_states = torch.stack(LA_states)
 
-        fused_LA_states = self.fuse_LA(LA_states)
+        # fused_LA_states = self.fuse_LA(LA_states)
+        # fused_LA_states = LA_states[-1]
 
         # ! Original version
-        # fused_LA_states = self.LA_layer(batch.utt, hidden_states[-1])
+        fused_LA_states = self.LA_layer(batch.utt, hidden_states[-1])
 
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, D]
