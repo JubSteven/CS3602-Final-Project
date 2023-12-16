@@ -1,6 +1,9 @@
-#coding=utf8
+# coding=utf8
 import sys, os, time, gc, json
 from torch.optim import Adam
+
+root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+model_save_path = os.path.join(root_path, "checkpoints")
 # current_dir = os.getcwd()
 # root = os.path.dirname(current_dir)
 # os.chdir(root)
@@ -17,6 +20,7 @@ from utils.vocab import PAD
 from model.slu_bert_base import SLUFusedBertTagging
 from tqdm import tqdm
 from torch.optim.lr_scheduler import MultiStepLR
+from utils.tensorBoard import visualizer
 
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
@@ -24,7 +28,7 @@ print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
 set_random_seed(args.seed)
-
+writer = visualizer(args)  # tensorboard writer
 model_time_stramp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 
 if args.device == -1:

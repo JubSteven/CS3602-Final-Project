@@ -20,6 +20,7 @@ def add_argument_base(arg_parser):
                             default=-1,
                             help='Use which device: -1 -> cpu ; the index of gpu o.w.')
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
+    arg_parser.add_argument('--visualize_path', default="visualization", help = "path to store tensorboard visualization files")
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
     arg_parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
