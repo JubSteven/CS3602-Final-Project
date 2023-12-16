@@ -5,3 +5,4 @@ MinRBT-h256-pt/
 __pycache__/
 visualization/
 checkpoints/
+wrong_examples/

@@ -35,7 +35,6 @@ class RNNTaggingDecoder(nn.Module):
     def __init__(self, input_size, num_tags, pad_id, model_type="GRU", num_layers=1):
         super(RNNTaggingDecoder, self).__init__()
         assert model_type in ["LSTM", "GRU", "RNN"], 'model_type should be one of "LSTM", "GRU", "RNN"'
-
         self.num_tags = num_tags
         self.feat_dim = 100
         self.output_layer = getattr(nn, model_type)(input_size,
@@ -218,7 +217,6 @@ class SLUFusedBertTagging(nn.Module):
 
         self.hidden_size = self.bertConfig.hidden_size
 
-        # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
         self.LA_layer = LexionAdapter(self.bertConfig)
 
         if cfg.decoder == "FNN":

@@ -4,7 +4,6 @@ from torch.optim import Adam
 from tqdm import tqdm
 import json
 
-
 # current_dir = os.getcwd()
 # root = os.path.dirname(current_dir)
 # os.chdir(root)
@@ -41,7 +40,6 @@ print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
 set_random_seed(args.seed)
 writer = visualizer(args)  # tensorboard writer
-
 
 if args.device == -1:
     args.device = "cpu"
@@ -111,15 +109,12 @@ def decode(choice, wrong_examples_tag=None):
             save_path = os.path.join(root_path, "wrong_examples", args.expri + '_' + time_stramp)
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            print(wrong_examples)
             with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
                       encoding='utf-8') as file:
                 json.dump(wrong_examples, file, ensure_ascii=False, indent=4)
         metrics = Example.evaluator.acc(
             predictions, labels
         )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
-
-
 
     torch.cuda.empty_cache()
     gc.collect()
@@ -175,7 +170,8 @@ if not args.testing:
             count += 1
 
             if j % 50 == 0:
-                metrics, dev_loss = decode('dev', f"epoch={i}_batch={j}")
+                msg = f"epoch={i}_batch={j}" if j == 0 and i % 5 == 0 else None
+                metrics, dev_loss = decode('dev', msg)
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
                 if dev_acc > best_result['dev_acc']:
                     best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
