@@ -63,7 +63,7 @@ if args.testing:
 def set_optimizer(model, args):
     params = [(n, p) for n, p in model.named_parameters() if p.requires_grad]
     grouped_params = [{'params': list(set([p for n, p in params]))}]
-    optimizer = Adam(grouped_params, lr=args.lr)
+    optimizer = Adam(grouped_params, lr=args.lr, weight_decay=args.weight_decay)
     return optimizer
 
 
