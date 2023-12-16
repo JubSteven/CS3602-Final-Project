@@ -180,14 +180,15 @@ if not args.testing:
                 if dev_acc > best_result['dev_acc']:
                     best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
                         'iter'] = dev_loss, dev_acc, dev_fscore, i
-                    model_name = f"devacc={dev_acc}_gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
+                    model_name = f"gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
                     torch.save(
                         {
                             'epoch': i,
                             'model': model.state_dict(),
                             'optim': optimizer.state_dict(),
                             'results': best_result,
-                        }, open(os.path.join(model_save_path, model_name), 'wb'))
+                        }, os.path.join(model_save_path, model_name))
+
                     print(
                         'NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)'
                         % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
