@@ -17,7 +17,7 @@ def make_path(args):
 
 def makedir(path):
     if not os.path.exists(path):
-        os.makedirs(path, 0o777)  # 0o777 means the mode of the folder, which is the permission of the folder, could be read, write and execute.
+        os.makedirs(path, 0o777,exist_ok=True)  # 0o777 means the mode of the folder, which is the permission of the folder, could be read, write and execute.
 
 
 def visualizer(args, clear_visualizer=True):
