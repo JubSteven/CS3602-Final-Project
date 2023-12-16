@@ -118,16 +118,21 @@ if not args.testing:
             cur_dataset = [train_dataset[k] for k in train_index[j:j + batch_size]]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             output, loss = model(current_batch)
+            print("output done")
             epoch_loss += loss.item()
             loss.backward()
+            print("backward finished")
             optimizer.step()
+            print("optimizer stepping")
             optimizer.zero_grad()
             count += 1
 
             if j % 50 == 0:
                 metrics, dev_loss = decode('dev')
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-
+            else:
+                dev_loss, dev_acc, dev_fscore = 0, 0, {'precision': 0, 'recall': 0, 'fscore': 0}
+            print("finish one iteration")
             trainbar.set_description(
                 f"Epoch: {i} | L: {epoch_loss / count:.2f} | Dev_Acc: {dev_acc:.2f} | Dev_P: {dev_fscore['precision']:.2f} | Dev_R: {dev_fscore['recall']:.2f}| Dev_F: {dev_fscore['fscore']:.2f}"
             )

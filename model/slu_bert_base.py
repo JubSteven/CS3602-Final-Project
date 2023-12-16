@@ -130,7 +130,6 @@ class LexionAdapter(nn.Module):
         """
         input_word_embeddings = self.process_sentence(input_sentence)  # [B, ?] -> [B, L, W, D]
         input_word_embeddings = input_word_embeddings.to(layer_output.device)
-        print("input_word_embeddings.shape = ", input_word_embeddings.shape)
 
         # transform
         word_outputs = self.word_transform(input_word_embeddings)  # [B, L, W, D]
@@ -229,6 +228,7 @@ class SLUFusedBertTagging(nn.Module):
         tag_output = self.output_layer(fused_hiddens, tag_mask,
                                        tag_ids)  # tagoutput[0] is the prob, tagoutput[1] is the loss
         # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
+        print("Finish forward")
         return tag_output
 
     def decode(self, label_vocab, batch):
