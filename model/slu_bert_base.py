@@ -204,11 +204,12 @@ class SLUFusedBertTagging(nn.Module):
     def __init__(self, cfg):
         super(SLUFusedBertTagging, self).__init__()
         self.cfg = cfg
+        self.fix_rate = self.cfg.fix_rate
         self.device = cfg.device
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
         self.set_model()
-        self.fix_rate = self.cfg.fix_rate
+
 
         self.hidden_size = self.bertConfig.hidden_size
 
