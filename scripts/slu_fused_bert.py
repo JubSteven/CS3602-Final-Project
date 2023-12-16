@@ -164,6 +164,7 @@ if not args.testing:
                     "Dev_R": dev_fscore['recall'],
                     "Dev_F": dev_fscore['fscore']
                 }
+
                 for key, value in dev_info.items():
                     writer.add_scalar(f"dev/{key}", value, j + i * 160)  # 160 = 「(nsamples / batch_size)
 
