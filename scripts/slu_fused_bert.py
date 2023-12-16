@@ -4,6 +4,8 @@ from torch.optim import Adam
 
 root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 model_save_path = os.path.join(root_path, "checkpoints")
+if os.path.exists(model_save_path):
+    os.makedirs(model_save_path)
 # current_dir = os.getcwd()
 # root = os.path.dirname(current_dir)
 # os.chdir(root)
