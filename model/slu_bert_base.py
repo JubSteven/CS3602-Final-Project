@@ -220,7 +220,7 @@ class SLUFusedBertTagging(nn.Module):
 
         # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
         self.LA_layer = LexionAdapter(self.bertConfig)
-        self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
@@ -250,15 +250,15 @@ class SLUFusedBertTagging(nn.Module):
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
 
-        if self.fix_rate < 0 or self.fix_rate > 1:
-            raise
-        total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
-        print(total_layers)
-        layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
+        # if self.fix_rate < 0 or self.fix_rate > 1:
+        #     raise
+        # total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
+        # print(total_layers)
+        # layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
 
-        for layer in self.model.encoder.layer[:layers_to_freeze]:
-            for param in layer.parameters():
-                param.requires_grad = False
+        # for layer in self.model.encoder.layer[:layers_to_freeze]:
+        #     for param in layer.parameters():
+        #         param.requires_grad = False
 
     def forward(self, batch):
         """

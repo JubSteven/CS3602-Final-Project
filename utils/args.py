@@ -22,10 +22,10 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
-    arg_parser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
+    arg_parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
     arg_parser.add_argument('--gamma', type=float, default=0.1, help='learning rate decay')
-    arg_parser.add_argument('--decay_step', nargs="+", type=int, default=[30], help='learning rate decay step')
-    arg_parser.add_argument('--weight_decay', type=float, default=0, help='weight decay')
+    arg_parser.add_argument('--decay_step', nargs="+", type=int, default=[50], help='learning rate decay step')
+    arg_parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay')
     arg_parser.add_argument('--max_epoch', type=int, default=100, help='terminate after maximum epochs')
     arg_parser.add_argument('--fix_rate', type=float, default=0, help='fix rate of the back bone model')
     #### Common Encoder Hyperparams ####
