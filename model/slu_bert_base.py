@@ -208,6 +208,7 @@ class SLUFusedBertTagging(nn.Module):
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
         self.set_model()
+        self.fix_rate = self.cfg.fix_rate
 
         self.hidden_size = self.bertConfig.hidden_size
 
@@ -242,6 +243,16 @@ class SLUFusedBertTagging(nn.Module):
         # Similar to the baseline, add the key attributes here.
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
+
+        if self.fix_rate < 0 or self.fix_rate > 1:
+            raise
+        total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
+        print(total_layers)
+        layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
+
+        for layer in self.model.encoder.layer[:layers_to_freeze]:
+            for param in layer.parameters():
+                param.requires_grad = False
 
     def forward(self, batch):
         """

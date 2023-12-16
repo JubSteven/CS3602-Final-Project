@@ -25,6 +25,8 @@ print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
 set_random_seed(args.seed)
 
+model_time_stramp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
+
 if args.device == -1:
     args.device = "cpu"
     device = "cpu"
@@ -144,13 +146,16 @@ if not args.testing:
         gc.collect()
 
         if dev_acc > best_result['dev_acc']:
+
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[
                 'iter'] = dev_loss, dev_acc, dev_fscore, i
+            model_name = f"{model_time_stramp}_devacc={dev_acc}_gamma={args.gamma}_decay={args.decay_step}_lr={args.lr}.bin"
             torch.save({
                 'epoch': i,
                 'model': model.state_dict(),
                 'optim': optimizer.state_dict(),
-            }, open('model.bin', 'wb'))
+                'results': best_result,
+            }, open(model_name, 'wb'))
             # print('NEW BEST MODEL: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)' % (i, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'], dev_fscore['fscore']))
 
     print('FINAL BEST RESULT: \tEpoch: %d\tDev loss: %.4f\tDev acc: %.4f\tDev fscore(p/r/f): (%.4f/%.4f/%.4f)' %
