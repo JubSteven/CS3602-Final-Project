@@ -188,11 +188,7 @@ class SLUFusedBertTagging(nn.Module):
         self.model_type = cfg.encoder_cell
         self.set_model()
 
-        # TODO can polish a bit here
-        if self.model_type == "bert-base-chinese" or "MacBERT-base" or "roberta-base":
-            self.hidden_size = 768
-        else:
-            self.hidden_size = 256
+        self.hidden_size = self.bertConfig.hidden_size
 
         # ! Do not change the name LA_layer, in sync with slu_fused_bert.py
         self.LA_layer = LexionAdapter(self.bertConfig)
