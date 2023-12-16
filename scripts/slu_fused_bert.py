@@ -140,9 +140,9 @@ if not args.testing:
         torch.cuda.empty_cache()
         gc.collect()
 
-        metrics, dev_loss = decode('dev')
-        dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
-        print(dev_acc, dev_fscore['fscore'], dev_fscore['precision'], dev_fscore['recall'])
+        # metrics, dev_loss = decode('dev')
+        # dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
+        # print(dev_acc, dev_fscore['fscore'], dev_fscore['precision'], dev_fscore['recall'])
 
         if dev_acc > best_result['dev_acc']:
             best_result['dev_loss'], best_result['dev_acc'], best_result['dev_f1'], best_result[

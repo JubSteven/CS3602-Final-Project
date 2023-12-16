@@ -305,6 +305,9 @@ class SLUFusedBertTagging(nn.Module):
 
         fused_LA_states = self.fuse_LA(LA_states)
 
+        # ! Original version
+        # fused_LA_states = self.LA_layer(batch.utt, hidden_states[-1])
+
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, D]
         tag_output = self.output_layer(fused_LA_states, tag_mask,
