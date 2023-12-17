@@ -29,7 +29,7 @@ args = init_args(sys.argv[1:])
 root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 model_save_path = os.path.join(root_path, "checkpoints", args.expri + '_' + time_stramp)
 if not os.path.exists(model_save_path):
-    os.makedirs(model_save_path,exist_ok=True)
+    os.makedirs(model_save_path, exist_ok=True)
 
 if args.expri == "empty":
     print("the name of this experiment is required for clarity!")
@@ -48,7 +48,7 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
+train_path = os.path.join(args.dataroot, 'train_.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
@@ -112,7 +112,7 @@ def decode(choice, wrong_examples_tag=None):
         if wrong_examples_tag:
             save_path = os.path.join(root_path, "wrong_examples", args.expri + '_' + time_stramp)
             if not os.path.exists(save_path):
-                os.makedirs(save_path,exist_ok=True)
+                os.makedirs(save_path, exist_ok=True)
             with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
                       encoding='utf-8') as file:
                 json.dump(wrong_examples, file, ensure_ascii=False, indent=4)

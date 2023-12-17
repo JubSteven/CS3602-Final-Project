@@ -36,6 +36,7 @@ class Sentence:
 
 
 class LabelConverter:
+
     def __init__(self, ontology_path):
         with open(ontology_path, encoding='utf-8') as f:
             data = json.load(f)
@@ -128,9 +129,9 @@ class MyDataset(Dataset):
         if len(labels) == 0:
             return ret
         j = 0
-        act, slot, value = labels[j] # semantics里的三元组，value有可能不在asr的text里
+        act, slot, value = labels[j]  # semantics里的三元组，value有可能不在asr的text里
         begin = True
-        for i, v in enumerate(text): # 这里每个v是token，注意不是单个字 ⚠️
+        for i, v in enumerate(text):  # 这里每个v是token，注意不是单个字
             if value.startswith(v):
                 # 如果asr句子中，这个字以它开始，那么就会算做标记，而不是像原来的数据处理一样，在句子中先找到一整个value，对整个value做标记
                 # 比如:
@@ -176,6 +177,7 @@ class MyDataset(Dataset):
 
 
 class MyDataLoader(DataLoader):
+
     def __init__(self, *args, **kwargs):
         kwargs['collate_fn'] = self._my_collate_func
         super().__init__(*args, **kwargs)
