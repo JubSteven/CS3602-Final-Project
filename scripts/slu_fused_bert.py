@@ -48,7 +48,7 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train_.json')
+train_path = os.path.join(args.dataroot, 'train_SOTA.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
@@ -60,6 +60,8 @@ print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dat
 args.vocab_size = Example.word_vocab.vocab_size
 args.pad_idx = Example.word_vocab[PAD]
 args.num_tags = Example.label_vocab.num_tags
+args.num_slots = Example.label_vocab.num_slots
+args.num_actions = Example.label_vocab.num_acts
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 print("device", device)

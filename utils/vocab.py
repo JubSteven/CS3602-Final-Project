@@ -1,5 +1,6 @@
 #coding=utf8
 import os, json
+
 PAD = '<pad>'
 UNK = '<unk>'
 BOS = '<s>'
@@ -56,6 +57,14 @@ class LabelVocab():
         self.idx2tag[0] = PAD
         self.tag2idx['O'] = 1
         self.idx2tag[1] = 'O'
+
+        # Added the decoding information for act2idx and slot2idx
+        self.act2idx, self.idx2act = {}, {}
+        self.slot2idx, self.idx2slot = {}, {}
+
+        self.act2idx['O'] = 0
+        self.idx2act[0] = 'O'
+
         self.from_filepath(root)
 
     def from_filepath(self, root):
@@ -71,12 +80,43 @@ class LabelVocab():
                     tag = f'{bi}-{act}-{slot}'
                     self.tag2idx[tag], self.idx2tag[idx] = idx, tag
 
+        for bi in ['B', 'I']:
+            for act in acts:
+                idx = len(self.act2idx)
+                tag = f'{bi}-{act}'
+                self.act2idx[tag], self.idx2act[idx] = idx, tag
+
+        for slot in slots:
+            idx = len(self.slot2idx)
+            tag = f'{slot}'
+            self.slot2idx[tag], self.idx2slot[idx] = idx, tag
+
     def convert_tag_to_idx(self, tag):
         return self.tag2idx[tag]
 
     def convert_idx_to_tag(self, idx):
         return self.idx2tag[idx]
 
+    def convert_slot_to_idx(self, slot):
+        return self.slot2idx[slot]
+
+    def convert_idx_to_slot(self, idx):
+        return self.idx2slot[idx]
+
+    def convert_act_to_idx(self, act):
+        return self.act2idx[act]
+
+    def convert_idx_to_act(self, idx):
+        return self.idx2act[idx]
+
     @property
     def num_tags(self):
         return len(self.tag2idx)
+
+    @property
+    def num_slots(self):
+        return len(self.slot2idx)
+
+    @property
+    def num_acts(self):
+        return len(self.act2idx)

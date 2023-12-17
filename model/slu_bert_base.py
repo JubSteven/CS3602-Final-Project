@@ -32,28 +32,36 @@ class TaggingFNNDecoder(nn.Module):
 
 class RNNTaggingDecoder(nn.Module):
 
-    def __init__(self, input_size, num_tags, pad_id, model_type="GRU", num_layers=1):
+    def __init__(self, input_size, num_slots, num_actions, pad_id, model_type="GRU", num_layers=1):
         super(RNNTaggingDecoder, self).__init__()
         assert model_type in ["LSTM", "GRU", "RNN"], 'model_type should be one of "LSTM", "GRU", "RNN"'
-        self.num_tags = num_tags
+        self.num_slots = num_slots
+        self.num_actions = num_actions
         self.feat_dim = 100
         self.output_layer = getattr(nn, model_type)(input_size,
                                                     self.feat_dim,
                                                     num_layers=num_layers,
                                                     bidirectional=True)
-        self.linear_layer = nn.Linear(self.feat_dim * 2, num_tags)
+        self.slot_layer = nn.Linear(self.feat_dim * 2, self.num_slots)
+        self.action_layer = nn.Linear(self.feat_dim * 2, self.num_actions)
         self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
         # print("num_tags = ", num_tags) , 74
 
     def forward(self, hiddens, mask, labels=None):
-        logits, _ = self.output_layer(hiddens)
-        logits = self.linear_layer(logits)
-        logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
-        prob = torch.softmax(logits, dim=-1)
+        hidden, _ = self.output_layer(hiddens)
+
+        slot_hidden = self.slot_layer(hidden)
+        slot_hidden += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_slots) * -1e32
+        slot_prob = torch.softmax(slot_hidden, dim=-1)
+
+        action_hidden = self.action_layer(hidden)
+        action_hidden += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_actions) * -1e32
+        action_prob = torch.softmax(action_hidden, dim=-1)
+
         if labels is not None:
-            loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
-            return prob, loss
-        return (prob,)
+            loss = self.loss_fct(hidden.reshape(-1, hidden.shape[-1]), labels.view(-1))
+            return (slot_hidden, action_hidden), loss
+        return ((slot_hidden, action_hidden),)
 
 
 # >>>>>>@pengxiang added the Module on 12.14
@@ -222,7 +230,8 @@ class SLUFusedBertTagging(nn.Module):
         if cfg.decoder == "FNN":
             self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
         else:
-            self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
+            self.output_layer = RNNTaggingDecoder(self.hidden_size, cfg.num_slots, cfg.num_actions, cfg.tag_pad_idx,
+                                                  cfg.decoder)
 
     def set_model(self):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
@@ -290,11 +299,21 @@ class SLUFusedBertTagging(nn.Module):
         batch_size = len(batch)
         labels = batch.labels
         output = self.forward(batch)
-        prob = output[0]
+        slot_prob, action_prob = output[0]
         predictions = []
 
         for i in range(batch_size):
-            pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
+            slot_pred = torch.argmax(slot_prob[i], dim=-1).cpu().tolist()
+            action_pred = torch.argmax(action_prob[i], dim=-1).cpu().tolist()
+            pred = []
+            for j in range(len(slot_pred)):
+                action = label_vocab.convert_idx_to_act(action_pred[j])
+                slot = label_vocab.convert_idx_to_slot(slot_pred[j])
+                if action != 'O':
+                    pred.append(label_vocab.convert_tag_to_idx(f'{action}-{slot}'))
+                else:
+                    pred.append(label_vocab.convert_tag_to_idx('O'))
+
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
             # batch.utt[i] composed of a list of sentences
