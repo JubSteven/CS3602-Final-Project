@@ -66,9 +66,9 @@ print("device", device)
 model = SLUFusedBertTagging(args).to(device)
 
 if args.testing:
-    check_point = torch.load(open('model.bin', 'rb'), map_location=device)
+    check_point = torch.load(open(args.ckpt, 'rb'), map_location=device)
     model.load_state_dict(check_point['model'])
-    print("Load saved model from root path")
+    print("Load saved model from args.ckpt")
 
 
 def set_optimizer(model, args):

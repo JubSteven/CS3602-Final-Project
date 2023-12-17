@@ -30,6 +30,7 @@ class Example():
         self.did = did  # data id
 
         self.utt = ex['asr_1best']  # the sentence
+        # self.utt = ex["manual_transcript"]
         self.slot = {}
         for label in ex['semantic']:
             act_slot = f'{label[0]}-{label[1]}'
