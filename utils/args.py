@@ -37,6 +37,9 @@ def add_argument_base(arg_parser):
                             type=bool,
                             default=True,
                             help="save those wrongly labeled sentence examples to local")
+    ### dataset configurations
+    arg_parser.add_argument('--use_gt', type=bool, default=False, help="use manual for training/testing or not")
+    arg_parser.add_argument('--flexible_tag', type=bool, default=False, help="use a different tagging strategy or not")
     #### Common Encoder Hyperparams ####
     arg_parser.add_argument(
         '--encoder_cell',
