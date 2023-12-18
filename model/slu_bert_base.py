@@ -288,7 +288,7 @@ class SLUFusedBertTagging(nn.Module):
             # merge the four last layers
             B, L = hiddens.shape[:2]
             stacked_hidden = torch.stack(hidden_states[-4:])
-            stacked_hidden = stacked_hidden.view(B, L, -1)
+            stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
             hiddens, _ = self.merge_layer(stacked_hidden)
 
         if self.apply_LA:

@@ -47,7 +47,7 @@ def add_argument_base(arg_parser):
         choices=['bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN', 'roberta-base', "MacBERT-base"],
         help='model type to choose from')
     arg_parser.add_argument('--decoder',
-                            default='FNN',
+                            default='GRU',
                             choices=['LSTM', 'GRU', 'RNN', 'FNN'],
                             help='model type to choose from')
     arg_parser.add_argument('--apply_LA', default=True, type=bool, help='apply Lexion Adapter or not')
