@@ -44,9 +44,11 @@ def add_argument_base(arg_parser):
         choices=['bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN', 'roberta-base', "MacBERT-base"],
         help='model type to choose from')
     arg_parser.add_argument('--decoder',
-                            default='GRU',
+                            default='FNN',
                             choices=['LSTM', 'GRU', 'RNN', 'FNN'],
                             help='model type to choose from')
+    arg_parser.add_argument('--apply_LA', default=True, type=bool, help='apply Lexion Adapter or not')
+    arg_parser.add_argument('--merge_hidden', default=False, type=bool, help='merge hidden states or not')
 
     arg_parser.add_argument('--dropout', type=float, default=0.2, help='feature dropout rate')
     arg_parser.add_argument('--embed_size', default=768, type=int, help='Size of word embeddings')

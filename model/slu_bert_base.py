@@ -213,11 +213,17 @@ class SLUFusedBertTagging(nn.Module):
         self.device = cfg.device
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
+        self.apply_LA = cfg.apply_LA
+        self.merge_hidden = cfg.merge_hidden
         self.set_model()
 
         self.hidden_size = self.bertConfig.hidden_size
 
-        self.LA_layer = LexionAdapter(self.bertConfig)
+        if self.apply_LA:
+            self.LA_layer = LexionAdapter(self.bertConfig)
+
+        if self.merge_hidden:
+            self.merge_layer = nn.GRU(self.hidden_size * 4, self.hidden_size, bidirectional=False, batch_first=True)
 
         if cfg.decoder == "FNN":
             self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
@@ -275,14 +281,22 @@ class SLUFusedBertTagging(nn.Module):
                                         max_length=max(self.length),
                                         return_tensors='pt').to(self.device)
 
-        hiddens = self.model(**encoded_inputs).hidden_states[-1]
+        hidden_states = self.model(**encoded_inputs).hidden_states
+        hiddens = hidden_states[-1]  # [B, L, D]
 
-        fused_hiddens = self.LA_layer(batch.utt, hiddens)
+        if self.merge_hidden:
+            # merge the four last layers
+            B, L = hiddens.shape[:2]
+            stacked_hidden = torch.stack(hidden_states[-4:])
+            stacked_hidden = stacked_hidden.view(B, L, -1)
+            hiddens, _ = self.merge_layer(stacked_hidden)
+
+        if self.apply_LA:
+            hiddens = self.LA_layer(batch.utt, hiddens)
 
         # Return the padded sentence (shape)
         # [B, MAX_LENGTH, D]
-        tag_output = self.output_layer(fused_hiddens, tag_mask,
-                                       tag_ids)  # tagoutput[0] is the prob, tagoutput[1] is the loss
+        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)  # tagoutput[0] is the prob, tagoutput[1] is the loss
         # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
         return tag_output
 
