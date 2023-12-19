@@ -101,9 +101,9 @@ def Lower(data_path, tgt_path):
 
 if __name__ == "__main__":
     c = os.getcwd()
-    # data_path = os.path.join(c, "data/train.json")
-    # tgt_path = os.path.join(c, "data/train_.json")
-    # data_proceed(data_path, tgt_path)
+    data_path = os.path.join(c, "data/train.json")
+    tgt_path = os.path.join(c, "data/train_.json")
+    data_proceed(data_path, tgt_path)
     # data_path2 = os.path.join(c,"data/development.json")
     # count(data_path2)
     # data_path = os.path.join(c, "data/train.json")
