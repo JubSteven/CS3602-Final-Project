@@ -48,7 +48,7 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train_SOTA.json')
+train_path = os.path.join(args.dataroot, 'train.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
