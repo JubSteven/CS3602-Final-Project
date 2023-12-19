@@ -51,6 +51,7 @@ def add_argument_base(arg_parser):
                             choices=['LSTM', 'GRU', 'RNN', 'FNN'],
                             help='model type to choose from')
     arg_parser.add_argument('--apply_LA', default=True, type=bool, help='apply Lexion Adapter or not')
+    arg_parser.add_argument("--LA_decoder", default="GRU", choices=['LSTM', 'GRU', 'RNN', None], help="LA decoder")
     arg_parser.add_argument('--merge_hidden', default=False, type=bool, help='merge hidden states or not')
 
     arg_parser.add_argument('--dropout', type=float, default=0.2, help='feature dropout rate')

@@ -70,10 +70,12 @@ class LexionAdapter(nn.Module):
 
         self.text_embed = SentenceModel()
 
-        self.hidden_decode = nn.GRU(bertConfig.hidden_size,
-                                    bertConfig.hidden_size,
-                                    bidirectional=False,
-                                    batch_first=True)
+        if bertConfig.LA_decoder:
+            self.hidden_decode = getattr(nn, bertConfig.LA_decoder)(bertConfig.hidden_size,
+                                                                    bertConfig.hidden_size,
+                                                                    bidirectional=False,
+                                                                    batch_first=True)
+
         self.word_transform = nn.Linear(bertConfig.word2vec_embed_size, bertConfig.hidden_size)
         self.word_word_weight = nn.Linear(bertConfig.hidden_size, bertConfig.hidden_size)
         attn_W = torch.zeros(bertConfig.hidden_size, bertConfig.hidden_size)
@@ -182,7 +184,8 @@ class LexionAdapter(nn.Module):
         """
         input_word_embeddings = self.process_sentence(input_sentence)  # [B, ?] -> [B, L, W, D]
         input_word_embeddings = input_word_embeddings.to(layer_output.device)
-        layer_output, _ = self.hidden_decode(layer_output)
+        if self.hidden_decode:
+            layer_output, _ = self.hidden_decode(layer_output)
 
         # transform
         word_outputs = self.word_transform(input_word_embeddings)  # [B, L, W, D]
@@ -262,6 +265,9 @@ class SLUFusedBertTagging(nn.Module):
         # Similar to the baseline, add the key attributes here.
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
+
+        # Add a configuration for the LA decoder layer
+        self.bertConfig.LA_decoder = self.cfg.LA_decoder
 
         assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
         total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数

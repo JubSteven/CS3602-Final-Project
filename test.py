@@ -9,4 +9,4 @@ def _get_val_indx(utt, target):
     return idx_list
 
 
-print(_get_val_indx("上海海交通通大", "上海交通大学"))
+print(_get_val_indx("上海海交通通大大学", "上海交通大学"))
