@@ -48,7 +48,7 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
+train_path = os.path.join(args.dataroot, 'train_SOTA.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
@@ -128,7 +128,7 @@ def decode(choice, wrong_examples_tag=None):
 def predict():
     model.eval()
     test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
-    test_dataset = Example.load_dataset(test_path)
+    test_dataset = Example.load_dataset(test_path, args)
     predictions = {}
     with torch.no_grad():
         for i in range(0, len(test_dataset), args.batch_size):
