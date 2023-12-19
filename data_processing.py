@@ -1,6 +1,6 @@
 import json
 import os
-from pycorrector import Corrector
+# from pycorrector import Corrector
 
 
 def data_proceed(data_path, tgt_path):
@@ -58,30 +58,30 @@ def count(data_path):
     return
 
 
-def correct(data_path, tgt_path):
-    m = Corrector()
-    f = open(data_path, 'r', encoding='utf-8', errors='ignore')
-    data = json.load(f)
-    f.close()
-    src = []
-    for sentences in data:
-        for sentence in sentences:
-            src.append(sentence['asr_1best'])
-    res = m.correct_batch(src)
-    i = 0
-    for sentences in data:  #sentences 依然是一个列表
-        for sentence in sentences:
-            sentence['manual_transcript'] = sentence['manual_transcript'].replace("(unknown)", '')
-            sentence['manual_transcript'] = sentence['manual_transcript'].replace("(side)", '')
-            sentence['manual_transcript'] = sentence['manual_transcript'].replace("(dialect)", '')
-            sentence['manual_transcript'] = sentence['manual_transcript'].replace("(robot)", '')
-            sentence['asr_1best'] = res[i]['target']
-            i += 1
-    t = open(tgt_path, 'w', encoding='utf-8')
-    json_str = json.dumps(data, ensure_ascii=False, indent=4)
-    t.write(json_str)
-    t.close()
-    return
+# def correct(data_path, tgt_path):
+#     m = Corrector()
+#     f = open(data_path, 'r', encoding='utf-8', errors='ignore')
+#     data = json.load(f)
+#     f.close()
+#     src = []
+#     for sentences in data:
+#         for sentence in sentences:
+#             src.append(sentence['asr_1best'])
+#     res = m.correct_batch(src)
+#     i = 0
+#     for sentences in data:  #sentences 依然是一个列表
+#         for sentence in sentences:
+#             sentence['manual_transcript'] = sentence['manual_transcript'].replace("(unknown)", '')
+#             sentence['manual_transcript'] = sentence['manual_transcript'].replace("(side)", '')
+#             sentence['manual_transcript'] = sentence['manual_transcript'].replace("(dialect)", '')
+#             sentence['manual_transcript'] = sentence['manual_transcript'].replace("(robot)", '')
+#             sentence['asr_1best'] = res[i]['target']
+#             i += 1
+#     t = open(tgt_path, 'w', encoding='utf-8')
+#     json_str = json.dumps(data, ensure_ascii=False, indent=4)
+#     t.write(json_str)
+#     t.close()
+#     return
 
 
 def Lower(data_path, tgt_path):
@@ -101,9 +101,9 @@ def Lower(data_path, tgt_path):
 
 if __name__ == "__main__":
     c = os.getcwd()
-    # data_path = os.path.join(c, "data/train.json")
-    # tgt_path = os.path.join(c, "data/train_.json")
-    # data_proceed(data_path, tgt_path)
+    data_path = os.path.join(c, "data/train.json")
+    tgt_path = os.path.join(c, "data/train_.json")
+    data_proceed(data_path, tgt_path)
     # data_path2 = os.path.join(c,"data/development.json")
     # count(data_path2)
     # data_path = os.path.join(c, "data/train.json")
@@ -113,5 +113,5 @@ if __name__ == "__main__":
     # tgt_path = os.path.join(c, "data/development_c.json")
     # correct(data_path, tgt_path)
     data_path = os.path.join(c, "data/development.json")
-    tgt_path = os.path.join(c, "data/development.json")
+    tgt_path = os.path.join(c, "data/development_.json")
     Lower(data_path, tgt_path)

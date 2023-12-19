@@ -222,10 +222,17 @@ class SLUFusedBertTagging(nn.Module):
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
         self.apply_LA = cfg.apply_LA
+        print("apply_LA = ", self.apply_LA)
+        print("=====================================")
         self.merge_hidden = cfg.merge_hidden
         self.set_model()
 
-        self.hidden_size = self.bertConfig.hidden_size
+        if self.model_type == "MacBERT-base":
+            self.hidden_size = 768
+        elif self.model_type == "MacBERT-large":
+            self.hidden_size = 1024
+        else:
+            self.hidden_size = self.bertConfig.hidden_size
 
         if self.apply_LA:
             self.LA_layer = LexionAdapter(self.bertConfig)
@@ -247,10 +254,15 @@ class SLUFusedBertTagging(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base",
                                                               output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+
+            return
         elif self.model_type == "MacBERT-large":
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large",
                                                               output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+            return
         elif self.model_type == "roberta-base":
             self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
             self.model = BertModel.from_pretrained("clue/roberta_chinese_base",
