@@ -48,7 +48,7 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train_SOTA.json')
+train_path = os.path.join(args.dataroot, 'train.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
@@ -64,6 +64,7 @@ args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 print("device", device)
 model = SLUFusedBertTagging(args).to(device)
+Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
 if args.testing:
     check_point = torch.load(open(args.ckpt, 'rb'), map_location=device)
@@ -151,7 +152,7 @@ if not args.testing:
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
-    scheduler = MultiStepLR(optimizer, milestones=args.decay_step, gamma=args.gamma)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
@@ -170,7 +171,6 @@ if not args.testing:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            scheduler.step()
             count += 1
 
             if j % 50 == 0:
@@ -208,6 +208,8 @@ if not args.testing:
                 f"Epoch: {i} | L: {epoch_loss / count:.2f}| Best_Acc: {best_result['dev_acc']:.2f} | Acc: {dev_acc:.2f} | P: {dev_fscore['precision']:.2f} | R: {dev_fscore['recall']:.2f}| F: {dev_fscore['fscore']:.2f}"
             )
             writer.add_scalar("train/epoch_loss", epoch_loss / count, j + i * 160)  # 160 = 「(nsamples / batch_size)
+
+        scheduler.step(dev_loss)
         torch.cuda.empty_cache()
         gc.collect()
 
