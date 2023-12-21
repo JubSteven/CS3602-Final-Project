@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from transformers import BertTokenizer, BertModel, BertConfig
+from transformers import BertTokenizer, BertModel, BertConfig, BertForPreTraining
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 import jieba
 from text2vec import SentenceModel
@@ -10,11 +10,6 @@ from torch.nn import Transformer
 # from accelerate import Accelerator
 
 # accelerator = Accelerator()
-
-nhead = 8
-num_encoder_layers = 6
-num_decoder_layers = 6
-dim_feedforward = 2048
 
 
 class TaggingFNNDecoder(nn.Module):
@@ -252,14 +247,25 @@ class SLUFusedBertTagging(nn.Module):
             self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
 
     def set_model(self, cfg):
-        # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
         if self.model_type == "bert-base-chinese":
             self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
             self.model = BertModel.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
+        elif self.model_type == "naive-bert":
+            self.bertConfig = BertConfig(
+                vocab_size=cfg.vocab_size,  # Specify the size of the vocabulary
+                hidden_size=768,  # Specify the size of the hidden layers
+                num_hidden_layers=12,  # Specify the number of hidden layers
+                num_attention_heads=12,  # Specify the number of attention heads
+                intermediate_size=2048,  # Specify the intermediate size for the feed-forward layers
+            )
+            self.model = BertForPreTraining(self.bertConfig)
+            self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
         elif self.model_type == "MacBERT-base":
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base",
                                                               output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
             # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
 
             return
@@ -267,33 +273,31 @@ class SLUFusedBertTagging(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large",
                                                               output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
             # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
             return
         elif self.model_type == "roberta-base":
             self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
             self.model = BertModel.from_pretrained("clue/roberta_chinese_base",
                                                    output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
         elif self.model_type == "naive-transformer":
             self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
             self.tag_embed = nn.Embedding(cfg.num_tags, cfg.embed_size)
             self.transformer = Transformer(d_model=cfg.embed_size,
-                                           nhead=nhead,
-                                           num_encoder_layers=num_encoder_layers,
-                                           num_decoder_layers=num_decoder_layers,
-                                           dim_feedforward=dim_feedforward,
+                                           nhead=8,
+                                           num_encoder_layers=6,
+                                           num_decoder_layers=6,
+                                           dim_feedforward=2048,
                                            dropout=cfg.dropout,
                                            batch_first=True)
             self.dropout_layer = nn.Dropout(p=cfg.dropout)
+            self.bertConfig = BertConfig()
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
             self.model = AutoModelForMaskedLM.from_pretrained(self.model_type,
                                                               output_hidden_states=True).to(self.device)
-
-        if self.model_type != "naive-transformer":
             self.bertConfig = BertConfig.from_pretrained(self.model_type)
-            # Similar to the baseline, add the key attributes here.
-        else:
-            self.bertConfig = BertConfig()  # take the position, as the naive transformer isn't required.
 
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
@@ -347,13 +351,19 @@ class SLUFusedBertTagging(nn.Module):
             hiddens = self.dropout_layer(outs)
 
         else:
-            encoded_inputs = self.tokenizer(batch.utt,
-                                            padding="max_length",
-                                            truncation=True,
-                                            max_length=max(self.length),
-                                            return_tensors='pt').to(self.device)
+            if self.model_type != "naive-bert":
+                encoded_inputs = self.tokenizer(batch.utt,
+                                                padding="max_length",
+                                                truncation=True,
+                                                max_length=max(self.length),
+                                                return_tensors='pt').to(self.device)
+                hidden_states = self.model(**encoded_inputs, output_hidden_states=True).hidden_states
+            else:
+                encoded_inputs = input_word2vec_ids
+                # self.model.embeddings.word_embeddings = self.word_embed
+                hidden_states = self.model(encoded_inputs, attention_mask=batch.tag_mask,
+                                           output_hidden_states=True).hidden_states
 
-            hidden_states = self.model(**encoded_inputs).hidden_states
             hiddens = hidden_states[-1]  # [B, L, D]
             if self.merge_hidden:
                 # merge the four last layers

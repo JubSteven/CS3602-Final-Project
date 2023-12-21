@@ -44,15 +44,15 @@ def add_argument_base(arg_parser):
     arg_parser.add_argument('--encoder_cell',
                             default='naive-transformer',
                             choices=[
-                                'naive-transformer', 'bert-base-chinese', 'MiniRBT-h256-pt', 'LSTM', 'GRU', 'RNN',
-                                'roberta-base', "MacBERT-base"
+                                'naive-transformer', 'bert-base-chinese', 'naive-bert', 'MiniRBT-h256-pt', 'LSTM',
+                                'GRU', 'RNN', 'roberta-base', "MacBERT-base"
                             ],
                             help='model type to choose from')
     arg_parser.add_argument('--decoder',
                             default='FNN',
                             choices=['LSTM', 'GRU', 'RNN', 'FNN'],
                             help='model type to choose from')
-    arg_parser.add_argument('--apply_LA', type=bool, default=True, help='apply Lexion Adapter or not')
+    arg_parser.add_argument('--apply_LA', type=bool, default=False, help='apply Lexion Adapter or not')
     arg_parser.add_argument("--LA_decoder", default="GRU", choices=['LSTM', 'GRU', 'RNN', None], help="LA decoder")
     arg_parser.add_argument('--merge_hidden', default=False, type=bool, help='merge hidden states or not')
 
