@@ -1,5 +1,6 @@
 #coding=utf8
 import os, json
+
 PAD = '<pad>'
 UNK = '<unk>'
 BOS = '<s>'
@@ -60,7 +61,7 @@ class LabelVocab():
 
     def from_filepath(self, root):
         # loaded tag2idx and idx2tag dicts
-        ontology = json.load(open(os.path.join(root, 'ontology.json'), 'r'))
+        ontology = json.load(open(os.path.join(root, 'CAIS_ontology.json'), 'r'))
         acts = ontology['acts']
         slots = ontology['slots']
 
