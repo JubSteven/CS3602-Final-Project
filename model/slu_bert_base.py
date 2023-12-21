@@ -220,41 +220,93 @@ class LexionAdapter(nn.Module):
 
 class SLUFusedBertTagging(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, cfg):
         super(SLUFusedBertTagging, self).__init__()
-        self.config = config
-        # embed_size = 768
-        # hidden_size = 512
-        self.word_embed = nn.Embedding(config.vocab_size, config.embed_size, padding_idx=0)
-        self.tag_embed = nn.Embedding(config.num_tags, config.embed_size)
-        self.transformer = Transformer(d_model=config.embed_size,
+        self.cfg = cfg
+        self.fix_rate = self.cfg.fix_rate
+        self.device = cfg.device
+        self.num_tags = cfg.num_tags
+        self.model_type = cfg.encoder_cell
+        self.apply_LA = cfg.apply_LA
+        print("apply_LA = ", self.apply_LA)
+        print("=====================================")
+        self.merge_hidden = cfg.merge_hidden
+        self.set_model()
+
+        if self.model_type == "MacBERT-base":
+            self.hidden_size = 768
+        elif self.model_type == "MacBERT-large":
+            self.hidden_size = 1024
+        else:
+            self.hidden_size = self.bertConfig.hidden_size
+
+        if self.apply_LA:
+            self.LA_layer = LexionAdapter(self.bertConfig)
+
+        if self.merge_hidden:
+            self.merge_layer = nn.GRU(self.hidden_size * 4, self.hidden_size, bidirectional=False, batch_first=True)
+
+        if cfg.decoder == "FNN":
+            self.output_layer = TaggingFNNDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx)
+        else:
+            self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
+
+        self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
+        self.tag_embed = nn.Embedding(cfg.num_tags, cfg.embed_size)
+        self.transformer = Transformer(d_model=cfg.embed_size,
                                        nhead=nhead,
                                        num_encoder_layers=num_encoder_layers,
                                        num_decoder_layers=num_decoder_layers,
                                        dim_feedforward=dim_feedforward,
-                                       dropout=config.dropout,
+                                       dropout=cfg.dropout,
                                        batch_first=True)
-        self.dropout_layer = nn.Dropout(p=config.dropout)
-        self.output_layer = TaggingFNNDecoder(config.hidden_size, config.num_tags, config.tag_pad_idx)
+        self.dropout_layer = nn.Dropout(p=cfg.dropout)
+
+    def set_model(self):
+        # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
+        if self.model_type == "bert-base-chinese":
+            self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
+            self.model = BertModel.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+        elif self.model_type == "MacBERT-base":
+            self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
+            self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base",
+                                                              output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+
+            return
+        elif self.model_type == "MacBERT-large":
+            self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
+            self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large",
+                                                              output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+            return
+        elif self.model_type == "roberta-base":
+            self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
+            self.model = BertModel.from_pretrained("clue/roberta_chinese_base",
+                                                   output_hidden_states=True).to(self.device)
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
+            self.model = AutoModelForMaskedLM.from_pretrained(self.model_type,
+                                                              output_hidden_states=True).to(self.device)
+
+        self.bertConfig = BertConfig.from_pretrained(self.model_type)
+
+        # Similar to the baseline, add the key attributes here.
+        self.bertConfig.word2vec_embed_size = self.cfg.embed_size
+        self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
+
+        # Add a configuration for the LA decoder layer
+        self.bertConfig.LA_decoder = self.cfg.LA_decoder
+
+        assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
+        total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
+        layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
+
+        for layer in self.model.encoder.layer[:layers_to_freeze]:
+            for param in layer.parameters():
+                param.requires_grad = False
 
     def positional_encoding(self, X, num_features, dropout_p=0.1, max_len=512):
-        r'''
-            给输入加入位置编码
-        参数：
-            - num_features: 输入进来的维度
-            - dropout_p: dropout的概率，当其为非零时执行dropout
-            - max_len: 句子的最大长度，默认512
-        形状：
-            - 输入： [batch_size, seq_length, num_features]
-            - 输出： [batch_size, seq_length, num_features]
-
-        例子：
-            >>> X = torch.randn((2,4,10))
-            >>> X = positional_encoding(X, 10)
-            >>> print(X.shape)
-            >>> torch.Size([2, 4, 10])
-        '''
-
         dropout = nn.Dropout(dropout_p)
         P = torch.zeros((1, max_len, num_features))
         X_ = torch.arange(max_len, dtype=torch.float32).reshape(-1, 1) / torch.pow(
@@ -266,21 +318,22 @@ class SLUFusedBertTagging(nn.Module):
         return dropout(X)
 
     def forward(self, batch):
+        """
+            Here batch is a list of original sentences
+        """
         tag_ids = batch.tag_ids
         tag_mask = (1 - batch.tag_mask).bool()
-        input_ids = batch.input_ids
+        input_word2vec_ids = batch.input_ids  # already padded
         lengths = batch.lengths
 
-        src_embed = self.word_embed(input_ids)
-        src_embed = self.positional_encoding(X=src_embed, num_features=self.config.embed_size)
-        tgt_embed = self.tag_embed(tag_ids)
-        tgt_embed = self.positional_encoding(X=tgt_embed, num_features=self.config.embed_size)
+        self.length = [len(utt) for utt in batch.utt]
 
-        mask = self.transformer.generate_square_subsequent_mask(
-            max(lengths)).to("cuda" if torch.cuda.is_available() else "cpu")
-        # packed_inputs = rnn_utils.pack_padded_sequence(src_embed, lengths, batch_first=True)
-        # packed_rnn_out, h_t_c_t = self.rnn(packed_inputs)  # bsize x seqlen x dim
-        # rnn_out, unpacked_len = rnn_utils.pad_packed_sequence(packed_rnn_out, batch_first=True)
+        src_embed = self.word_embed(input_word2vec_ids)
+        src_embed = self.positional_encoding(X=src_embed, num_features=self.cfg.embed_size)
+        tgt_embed = self.tag_embed(tag_ids)
+        tgt_embed = self.positional_encoding(X=tgt_embed, num_features=self.cfg.embed_size)
+
+        mask = self.transformer.generate_square_subsequent_mask(max(lengths)).to(src_embed.device)
         outs = self.transformer(src=src_embed,
                                 tgt=tgt_embed,
                                 tgt_mask=mask,
@@ -288,23 +341,44 @@ class SLUFusedBertTagging(nn.Module):
                                 tgt_key_padding_mask=tag_mask)
         # print(outs.shape)
         hiddens = self.dropout_layer(outs)
-        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)
 
+        # hiddens = hidden_states[-1]  # [B, L, D]
+
+        # if self.merge_hidden:
+        #     # merge the four last layers
+        #     B, L = hiddens.shape[:2]
+        #     stacked_hidden = torch.stack(hidden_states[-4:])
+        #     stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
+        #     hiddens, _ = self.merge_layer(stacked_hidden)
+
+        if self.apply_LA:
+            hiddens = self.LA_layer(batch.utt, hiddens)
+
+        # Return the padded sentence (shape)
+        # [B, MAX_LENGTH, D]
+        tag_output = self.output_layer(hiddens, tag_mask, tag_ids)  # tagoutput[0] is the prob, tagoutput[1] is the loss
+        # print(tag_output[0].shape) # 32(batch_size)， 26(utt length)， 74(num_tags))
         return tag_output
 
     def decode(self, label_vocab, batch):
         batch_size = len(batch)
         labels = batch.labels
-        prob, loss = self.forward(batch)
+        output = self.forward(batch)
+        prob = output[0]
         predictions = []
+
         for i in range(batch_size):
             pred = torch.argmax(prob[i], dim=-1).cpu().tolist()
             pred_tuple = []
             idx_buff, tag_buff, pred_tags = [], [], []
-            pred = pred[:len(batch.utt[i])]
+            # batch.utt[i] composed of a list of sentences
+            pred = pred[:len(
+                batch.utt[i]
+            )]  # the length of the sentence i in the batch, like [61, 2, 55, 14, 7, 63, 26, 42, 32, 32, 15, 29, 21, 15, 52, 52, 21, 6, 26, 42]
             for idx, tid in enumerate(pred):
-                tag = label_vocab.convert_idx_to_tag(tid)
+                tag = label_vocab.convert_idx_to_tag(tid)  # ex: I-deny-出行方式
                 pred_tags.append(tag)
+                # 'O' serves as a separator, 'B' symbols the start and 'I' symbols mid-word. This is used for POS-Tagging later.
                 if (tag == 'O' or tag.startswith('B')) and len(tag_buff) > 0:
                     slot = '-'.join(tag_buff[0].split('-')[1:])
                     value = ''.join([batch.utt[i][j] for j in idx_buff])
@@ -321,4 +395,9 @@ class SLUFusedBertTagging(nn.Module):
                 value = ''.join([batch.utt[i][j] for j in idx_buff])
                 pred_tuple.append(f'{slot}-{value}')
             predictions.append(pred_tuple)
-        return predictions, labels, loss.cpu().item()
+
+        if len(output) == 1:
+            return predictions
+        else:
+            loss = output[1]
+            return predictions, labels, loss.cpu().item()
