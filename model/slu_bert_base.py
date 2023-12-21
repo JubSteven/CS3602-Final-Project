@@ -231,7 +231,7 @@ class SLUFusedBertTagging(nn.Module):
         print("apply_LA = ", self.apply_LA)
         print("=====================================")
         self.merge_hidden = cfg.merge_hidden
-        self.set_model()
+        self.set_model(cfg)
 
         if self.model_type == "MacBERT-base":
             self.hidden_size = 768
@@ -251,18 +251,7 @@ class SLUFusedBertTagging(nn.Module):
         else:
             self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
 
-        self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
-        self.tag_embed = nn.Embedding(cfg.num_tags, cfg.embed_size)
-        self.transformer = Transformer(d_model=cfg.embed_size,
-                                       nhead=nhead,
-                                       num_encoder_layers=num_encoder_layers,
-                                       num_decoder_layers=num_decoder_layers,
-                                       dim_feedforward=dim_feedforward,
-                                       dropout=cfg.dropout,
-                                       batch_first=True)
-        self.dropout_layer = nn.Dropout(p=cfg.dropout)
-
-    def set_model(self):
+    def set_model(self, cfg):
         # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
         if self.model_type == "bert-base-chinese":
             self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
@@ -284,27 +273,41 @@ class SLUFusedBertTagging(nn.Module):
             self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
             self.model = BertModel.from_pretrained("clue/roberta_chinese_base",
                                                    output_hidden_states=True).to(self.device)
+        elif self.model_type == "naive-transformer":
+            self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
+            self.tag_embed = nn.Embedding(cfg.num_tags, cfg.embed_size)
+            self.transformer = Transformer(d_model=cfg.embed_size,
+                                           nhead=nhead,
+                                           num_encoder_layers=num_encoder_layers,
+                                           num_decoder_layers=num_decoder_layers,
+                                           dim_feedforward=dim_feedforward,
+                                           dropout=cfg.dropout,
+                                           batch_first=True)
+            self.dropout_layer = nn.Dropout(p=cfg.dropout)
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
             self.model = AutoModelForMaskedLM.from_pretrained(self.model_type,
                                                               output_hidden_states=True).to(self.device)
 
-        self.bertConfig = BertConfig.from_pretrained(self.model_type)
+        if self.model_type != "naive-transformer":
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
+            # Similar to the baseline, add the key attributes here.
+        else:
+            self.bertConfig = BertConfig()  # take the position, as the naive transformer isn't required.
 
-        # Similar to the baseline, add the key attributes here.
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
 
         # Add a configuration for the LA decoder layer
         self.bertConfig.LA_decoder = self.cfg.LA_decoder
 
-        assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
-        total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
-        layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
+        # assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
+        # total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
+        # layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
 
-        for layer in self.model.encoder.layer[:layers_to_freeze]:
-            for param in layer.parameters():
-                param.requires_grad = False
+        # for layer in self.model.encoder.layer[:layers_to_freeze]:
+        #     for param in layer.parameters():
+        #         param.requires_grad = False
 
     def positional_encoding(self, X, num_features, dropout_p=0.1, max_len=512):
         dropout = nn.Dropout(dropout_p)
@@ -328,28 +331,36 @@ class SLUFusedBertTagging(nn.Module):
 
         self.length = [len(utt) for utt in batch.utt]
 
-        src_embed = self.word_embed(input_word2vec_ids)
-        src_embed = self.positional_encoding(X=src_embed, num_features=self.cfg.embed_size)
-        tgt_embed = self.tag_embed(tag_ids)
-        tgt_embed = self.positional_encoding(X=tgt_embed, num_features=self.cfg.embed_size)
+        if self.model_type == 'naive-transformer':
+            src_embed = self.word_embed(input_word2vec_ids)
+            src_embed = self.positional_encoding(X=src_embed, num_features=self.cfg.embed_size)
+            tgt_embed = self.tag_embed(tag_ids)
+            tgt_embed = self.positional_encoding(X=tgt_embed, num_features=self.cfg.embed_size)
 
-        mask = self.transformer.generate_square_subsequent_mask(max(lengths)).to(src_embed.device)
-        outs = self.transformer(src=src_embed,
-                                tgt=tgt_embed,
-                                tgt_mask=mask,
-                                src_key_padding_mask=tag_mask,
-                                tgt_key_padding_mask=tag_mask)
-        # print(outs.shape)
-        hiddens = self.dropout_layer(outs)
+            mask = self.transformer.generate_square_subsequent_mask(max(lengths)).to(src_embed.device)
+            outs = self.transformer(src=src_embed,
+                                    tgt=tgt_embed,
+                                    tgt_mask=mask,
+                                    src_key_padding_mask=tag_mask,
+                                    tgt_key_padding_mask=tag_mask)
+            # print(outs.shape)
+            hiddens = self.dropout_layer(outs)
 
-        # hiddens = hidden_states[-1]  # [B, L, D]
+        else:
+            encoded_inputs = self.tokenizer(batch.utt,
+                                            padding="max_length",
+                                            truncation=True,
+                                            max_length=max(self.length),
+                                            return_tensors='pt').to(self.device)
 
-        # if self.merge_hidden:
-        #     # merge the four last layers
-        #     B, L = hiddens.shape[:2]
-        #     stacked_hidden = torch.stack(hidden_states[-4:])
-        #     stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
-        #     hiddens, _ = self.merge_layer(stacked_hidden)
+            hidden_states = self.model(**encoded_inputs).hidden_states
+            hiddens = hidden_states[-1]  # [B, L, D]
+            if self.merge_hidden:
+                # merge the four last layers
+                B, L = hiddens.shape[:2]
+                stacked_hidden = torch.stack(hidden_states[-4:])
+                stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
+                hiddens, _ = self.merge_layer(stacked_hidden)
 
         if self.apply_LA:
             hiddens = self.LA_layer(batch.utt, hiddens)
