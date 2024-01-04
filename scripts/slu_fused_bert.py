@@ -40,10 +40,11 @@ if args.device == -1:
     args.device = "cpu"
     device = "cpu"
 else:
-    device = set_torch_device(args.device)
+    # device = set_torch_device(args.device)
+    device = "cuda:3"
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train_aug.json')
+train_path = os.path.join(args.dataroot, 'train_augmented.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path, args)
@@ -57,13 +58,15 @@ args.num_tags = Example.label_vocab.num_tags
 args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 print("device", device)
-model = SLUFusedBertTagging(args).to(device)
+model = SLUFusedBertTagging(args)
+model = model.to(device)
 if args.encoder_cell == "naive-transformer" or args.encoder_cell == "naive-bert":
     Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
 if args.testing:
     check_point = torch.load(open(args.ckpt, 'rb'), map_location=device)
     model.load_state_dict(check_point['model'])
+    model.to(device)
     print("Load saved model from args.ckpt")
 
 
