@@ -1,5 +1,9 @@
 # CS3602 Slot Language Understanding
 
+> Benhao Huang, Yizhou Liu and Pengxiang Zhu*
+> 
+> Computer Science and Engineering of IEEE Honor Class, Shanghai Jiao Tong University
+
 In this repo, we complete the final project for CS3602 (Natural Language Understanding). Give the dataset `data/train.json` for training and `data/developement.json` for testing. The project is about slot language understanding, where the datasets contain (action, slot, value) triples and we need to extract these information from the given ASR inputs.
 
 ## Environment Setup
@@ -38,7 +42,11 @@ For testing on the given dataset, run the following command in shell
 python scripts/slu_fused_bert.py --expri=<name of the experiment> --device=<gpu_id, -1 for cpu> --testing --ckpt <path to checkpoint>
 ```
 
+The pretrained model can be downloaded here.
+
 
 ## Result
 
-It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model.
+It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model. Empircal results of the model is shown as follows.
+
+![](imgs/result.png)
