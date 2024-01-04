@@ -1,4 +1,4 @@
-#coding=utf-8
+# coding=utf-8
 import argparse
 import sys
 
@@ -20,10 +20,27 @@ def add_argument_base(arg_parser):
                             default=-1,
                             help='Use which device: -1 -> cpu ; the index of gpu o.w.')
     arg_parser.add_argument('--testing', action='store_true', help='training or evaluation mode')
+    arg_parser.add_argument('--ckpt', default=None, help='checkpoint path')
+    arg_parser.add_argument('--visualize_path',
+                            default="visualization",
+                            help="path to store tensorboard visualization files")
+    arg_parser.add_argument('--expri', default="empty", help="description of this experiment")
+    arg_parser.add_argument("--no_metrics", action="store_true", help="do not use metrics")
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
-    arg_parser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
+    arg_parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
+    arg_parser.add_argument('--gamma', type=float, default=0.1, help='learning rate decay')
+    arg_parser.add_argument('--decay_step', nargs="+", type=int, default=[50], help='learning rate decay step')
+    arg_parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay')
     arg_parser.add_argument('--max_epoch', type=int, default=100, help='terminate after maximum epochs')
+    arg_parser.add_argument('--fix_rate', type=float, default=0, help='fix rate of the back bone model')
+    arg_parser.add_argument('--get_wrong_examples',
+                            type=bool,
+                            default=True,
+                            help="save those wrongly labeled sentence examples to local")
+    ### dataset configurations
+    arg_parser.add_argument('--use_gt', type=bool, default=False, help="use manual for training/testing or not")
+    arg_parser.add_argument('--flexible_tag', type=bool, default=False, help="use a different tagging strategy or not")
     #### Common Encoder Hyperparams ####
     arg_parser.add_argument(
         '--encoder_cell',
@@ -37,4 +54,4 @@ def add_argument_base(arg_parser):
     return arg_parser
 
 
-# opts = init_args()
+args = init_args()

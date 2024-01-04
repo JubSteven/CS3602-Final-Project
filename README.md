@@ -1,87 +1,55 @@
-# nlp-dev
+# CS3602 Slot Language Understanding
 
-The course project for SJTU CS3602 targeting Chinese SLU problem. 
+> Benhao Huang, Yizhou Liu and Pengxiang Zhu*
+> 
+> Computer Science and Engineering of IEEE Honor Class, Shanghai Jiao Tong University
 
-## Formulation of the SLU Problem
+In this repo, we complete the final project for CS3602 (Natural Language Understanding). Give the dataset `data/train.json` for training and `data/developement.json` for testing. The project is about slot language understanding, where the datasets contain (action, slot, value) triples and we need to extract these information from the given ASR inputs. The framework of our proposed model can be shown as follows.
 
-Given an input sentence of spoken language (denoted by concantenation of static words $[w_1,\dots, w_n]$), we need to formulate an output tuple $(a, s, v)$, where $a$ denotes the **act** of the sentence, $s$ denotes the **slot** of the sentence and $v$ denotes the **value** of the semantic label. The following is an example
+![framework](imgs/framework.jpg)
 
-> 我想定一张从北京飞到上海的机票
+## Environment Setup
 
-The target output would be `inform(城市=上海)`, where `inform` is the act, `城市` is the slot and `上海` is the label(value). Note that all the acts $a\in A$ and value $v\in V$, where $A,V$ are *preset* datasets. Note that for a given sentence, it is possible to have **more than one** $(a,s,v)$ pairs. As an example, we have the following.
-
-```json
-{
-    "utt_id": 1,
-    "manual_transcript": "取消导航",
-    "asr_1best": "取消导航",
-    "semantic": [
-        [
-            "inform",
-            "操作",
-            "取消"
-        ],
-        [
-            "inform",
-            "对象",
-            "导航"
-        ]
-    ]
-}
+- Build the basic conda environment
+```
+conda env create -f environment.yaml
 ```
 
-## Analysis of the given code
+- Install the dependencies
 
-The given code approaches the task using a BiLSTM with PosTagging to deal with the problem. Here I will give a detailed explanation of the baseline, so that we get to know the structure of the repo as well as the task better. In the process, some modifications to the given code will also be documented.
-
-`slu_baseline.py` is the main code. Since we will be modifying the model but use the same dataset, I will try to make full use of the *complicated* data preprocessing part. The class `Example` defined in `example.py` can process the data. 
-
-### Data initialization
-
-The `load_dataset` method returns `exmaples`, which is a list of `Example()` object initialized by `di-ui` and `utt`, the following is an example
-```yaml
-0-0
-{'utt_id': 1, 'manual_transcript': '导航到凯里大十字', 'asr_1best': '导航到凯里大十字', 'semantic': [['inform', '操作', '导航'], ['inform', '终点名称', '凯里大十字']]}
+```
+pip install -r requirements.txt
 ```
 
-For each `Example()` object, it has several attributes. Using the previous example, I have listed some key attributes
-
-```yaml
-ex: the utt parameter mentioned previous, a dict containing the data associated with one sentence
-
-did: the id of the data
-
-utt: ex['asr_1best'], gets the sentence part of the data
-
-slot: {'inform-操作': '导航', 'inform-终点名称': '凯里大十字'}
-
-tags: ['B-inform-操作', 'I-inform-操作', 'O', 'B-inform-终点名称', 'I-inform-终点名称', 'I-inform-终点名称', 'I-inform-终点名称', 'I-inform-终点名称']
-
-'O' serves as a separator, 'B' symbols the start and 'I' symbols mid-word. This is used for POS-Tagging later.
-
-slotvalue: ['inform-操作-导航', 'inform-终点名称-凯里大十字']
-
-tag_id: [30, 31, 1, 14, 15, 15, 15, 15]. 
-
-Use the convert_tag_to_idx function to convert slotvalue into corresponding index using existing vocabulary. 
-
-(Only consider the act and slot part, no value as it is not in the dataset)
+- Install `text2vec`
+```
+pip install -U text2vec
 ```
 
-**Note:** here $(a,s,v)$ is considered as a whole, not separately. So essentially we are estimating a function $f$ such that $f := w\rightarrow y=(a,s,v)$
+
+## Usage
+
+For training on the given dataset, run the following command in shell
+
+```shell
+python scripts/slu_fused_bert.py --expri=<name of the experiment> --device=<gpu_id, -1 for cpu>
+```
+
+For other arguments, refer to `utils/args.py` for modification. The training results will be stored in `./checkpoints`, `./visualization`. If `--get_wrong_examples` is set to true, then you can find the wrong examples in `./wrong_examples`.
 
 
-where $y$ is a discrete variable. It remains to be seen whether we should break them apart. For now, I leave it as it is.
+For testing on the given dataset, run the following command in shell
 
-### Model
+```shell
+python scripts/slu_fused_bert.py --expri=<name of the experiment> --device=<gpu_id, -1 for cpu> --testing --ckpt <path to checkpoint>
+```
 
-The model is relatively simple, defined in `model/slu_baseline_tagging.py`. The forward function deals with the inputs in batch. The word embeddings (`nn.Embedding`) are loaded directly from `word2vec-768.txt`. The model structure can be read simply, so I will focus on the tricky part where data is processed (continuing in the order of `slu_baseline.py`).
+The pretrained model can be downloaded here.
 
-First, all the data is loaded into `train_dataset`, and `cur_dataset` is a batch subset of the full dataset. Recall that `train_dataset` is a list of `Example()` objects. `from_example_list` takes in the the subset of `Example()` objects, and returns `current_batch` as a `Batch` object (defined in `utils/batch.py`) with many more attributes, including `utt`, `did`, `lengths`, `labels`, etc. After that, it is fed into the model described previously.
 
-The output of the model is a `torch.Tensor` of shape `[32, 26, 74]`, where `32` is the `batch_size`. The `decode` function will use `SLUTagging.decode()` method to iterate over the dataset again using the trained model, decode the result (transfer the probability into solid indices) and finally use `Example.evaluator()` to calculate the metrics required.
+## Result
 
-## Summary
+It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model. Empircal results of the model is shown as follows.
 
-Currently, the structure of the code is acceptable, and it contains many parts that fits the current data. It would be ideal if we only need to modify the model part, so that we don't need to bother reading and decoding the data a lot.
+![](imgs/result.png)
 

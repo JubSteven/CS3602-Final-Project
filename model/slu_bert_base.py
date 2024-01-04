@@ -27,6 +27,32 @@ class TaggingFNNDecoder(nn.Module):
         return (prob,)
 
 
+class RNNTaggingDecoder(nn.Module):
+
+    def __init__(self, input_size, num_tags, pad_id, model_type="GRU", num_layers=1):
+        super(RNNTaggingDecoder, self).__init__()
+        assert model_type in ["LSTM", "GRU", "RNN"], 'model_type should be one of "LSTM", "GRU", "RNN"'
+        self.num_tags = num_tags
+        self.feat_dim = 100
+        self.output_layer = getattr(nn, model_type)(input_size,
+                                                    self.feat_dim,
+                                                    num_layers=num_layers,
+                                                    bidirectional=True)
+        self.linear_layer = nn.Linear(self.feat_dim * 2, num_tags)
+        self.loss_fct = nn.CrossEntropyLoss(ignore_index=pad_id)
+        # print("num_tags = ", num_tags) , 74
+
+    def forward(self, hiddens, mask, labels=None):
+        logits, _ = self.output_layer(hiddens)
+        logits = self.linear_layer(logits)
+        logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
+        prob = torch.softmax(logits, dim=-1)
+        if labels is not None:
+            loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
+            return prob, loss
+        return (prob,)
+
+
 # >>>>>>@pengxiang added the Module on 12.14
 class LexionAdapter(nn.Module):
     """
@@ -34,12 +60,19 @@ class LexionAdapter(nn.Module):
         Adapted from https://github.com/liuwei1206/LEBERT/blob/main/wcbert_modeling.py
     """
 
-    def __init__(self, bertConfig):
+    def __init__(self, bertConfig, device=0):
         super(LexionAdapter, self).__init__()
         self.dropout = nn.Dropout(0.2)
         self.tanh = nn.Tanh()
+        self.device = device
 
-        self.text_embed = SentenceModel()
+        self.text_embed = SentenceModel(device=self.device)
+
+        if bertConfig.LA_decoder:
+            self.hidden_decode = getattr(nn, bertConfig.LA_decoder)(bertConfig.hidden_size,
+                                                                    bertConfig.hidden_size,
+                                                                    bidirectional=False,
+                                                                    batch_first=True)
 
         self.word_transform = nn.Linear(bertConfig.word2vec_embed_size, bertConfig.hidden_size)
         self.word_word_weight = nn.Linear(bertConfig.hidden_size, bertConfig.hidden_size)
@@ -149,6 +182,8 @@ class LexionAdapter(nn.Module):
         """
         input_word_embeddings = self.process_sentence(input_sentence)  # [B, ?] -> [B, L, W, D]
         input_word_embeddings = input_word_embeddings.to(layer_output.device)
+        if self.hidden_decode:
+            layer_output, _ = self.hidden_decode(layer_output)
 
         # transform
         word_outputs = self.word_transform(input_word_embeddings)  # [B, L, W, D]
@@ -216,9 +251,14 @@ class SLUFusedBertTagging(nn.Module):
     def __init__(self, cfg):
         super(SLUFusedBertTagging, self).__init__()
         self.cfg = cfg
+        self.fix_rate = self.cfg.fix_rate
         self.device = cfg.device
         self.num_tags = cfg.num_tags
         self.model_type = cfg.encoder_cell
+        self.apply_LA = cfg.apply_LA
+        print("apply_LA = ", self.apply_LA)
+        print("=====================================")
+        self.merge_hidden = cfg.merge_hidden
         self.set_model()
 
         self.hidden_size = self.bertConfig.hidden_size
@@ -247,10 +287,15 @@ class SLUFusedBertTagging(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base",
                                                               output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+
+            return
         elif self.model_type == "MacBERT-large":
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large",
                                                               output_hidden_states=True).to(self.device)
+            # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
+            return
         elif self.model_type == "roberta-base":
             self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
             self.model = BertModel.from_pretrained("clue/roberta_chinese_base",

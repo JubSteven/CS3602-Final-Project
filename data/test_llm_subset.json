@@ -1,0 +1,85 @@
+[
+    [
+        {
+            "utt_id": 1,
+            "manual_transcript": "导航到安德第六地税所(robot)前方六百米有限速拍照限速一百",
+            "asr_1best": "导航到安德第六地税所拍照",
+            "semantic": [
+                [
+                    "inform",
+                    "操作",
+                    "导航"
+                ],
+                [
+                    "inform",
+                    "终点名称",
+                    "安德第六地税所"
+                ]
+            ]
+        }
+    ],
+        [
+        {
+            "utt_id": 1,
+            "manual_transcript": "把导航退掉",
+            "asr_1best": "把导航退掉",
+            "semantic": [
+                [
+                    "inform",
+                    "操作",
+                    "退掉"
+                ],
+                [
+                    "inform",
+                    "对象",
+                    "导航"
+                ]
+            ]
+        },
+        {
+            "utt_id": 2,
+            "manual_transcript": "你可以睡觉了",
+            "asr_1best": "你可以睡觉了",
+            "semantic": []
+        },
+        {
+            "utt_id": 3,
+            "manual_transcript": "去你家",
+            "asr_1best": "去你家",
+            "semantic": []
+        }
+    ],
+        [
+        {
+            "utt_id": 1,
+            "manual_transcript": "我要走宁夏回族自治区党委大院",
+            "asr_1best": "我要走宁夏回族自治区党委大院",
+            "semantic": [
+                [
+                    "inform",
+                    "途经点名称",
+                    "宁夏回族自治区党委大院"
+                ]
+            ]
+        }
+    ],
+    [
+        {
+            "utt_id": 1,
+            "manual_transcript": "附近火锅店在什么位置",
+            "asr_1best": "附近火锅店在什么位置",
+            "semantic": [
+                [
+                    "inform",
+                    "poi目标",
+                    "火锅店"
+                ],
+                [
+                    "inform",
+                    "请求类型",
+                    "附近"
+                ]
+            ]
+        }
+    ]
+]

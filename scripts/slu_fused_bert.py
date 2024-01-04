@@ -1,6 +1,9 @@
-#coding=utf8
+# coding=utf8
 import sys, os, time, gc, json
 from torch.optim import Adam
+from tqdm import tqdm
+import json
+
 # current_dir = os.getcwd()
 # root = os.path.dirname(current_dir)
 # os.chdir(root)
@@ -16,13 +19,27 @@ from utils.batch import from_example_list
 from utils.vocab import PAD
 from model.slu_bert_base import SLUFusedBertTagging
 from tqdm import tqdm
+from torch.optim.lr_scheduler import MultiStepLR
+from utils.tensorBoard import visualizer
 
+time_stramp = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 # initialization params, output path, logger, random seed and torch.device
 args = init_args(sys.argv[1:])
+
+root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+model_save_path = os.path.join(root_path, "checkpoints", args.expri + '_' + time_stramp)
+if not os.path.exists(model_save_path):
+    os.makedirs(model_save_path, exist_ok=True)
+
+if args.expri == "empty":
+    print("the name of this experiment is required for clarity!")
+    exit(0)
+
 print("Initialization finished ...")
 print("Random seed is set to %d" % (args.seed))
 print("Use GPU with index %s" % (args.device) if args.device >= 0 else "Use CPU as target torch device")
 set_random_seed(args.seed)
+writer = visualizer(args)  # tensorboard writer
 
 if args.device == -1:
     args.device = "cpu"
@@ -31,12 +48,11 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
-# train_path = os.path.join(args.dataroot, 'train_augmented.json')
+train_path = os.path.join(args.dataroot, 'train_aug.json')
 dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
-train_dataset = Example.load_dataset(train_path)
-dev_dataset = Example.load_dataset(dev_path)
+train_dataset = Example.load_dataset(train_path, args)
+dev_dataset = Example.load_dataset(dev_path, args)
 print("Load dataset and database finished, cost %.4fs ..." % (time.time() - start_time))
 print("Dataset size: train -> %d ; dev -> %d" % (len(train_dataset), len(dev_dataset)))
 
@@ -49,9 +65,9 @@ print("device", device)
 model = SLUFusedBertTagging(args).to(device)
 
 if args.testing:
-    check_point = torch.load(open('model.bin', 'rb'), map_location=device)
+    check_point = torch.load(open(args.ckpt, 'rb'), map_location=device)
     model.load_state_dict(check_point['model'])
-    print("Load saved model from root path")
+    print("Load saved model from args.ckpt")
 
 
 def set_optimizer(model, args):
@@ -61,24 +77,51 @@ def set_optimizer(model, args):
     return optimizer
 
 
-def decode(choice):
+def decode(choice, wrong_examples_tag=None):
     assert choice in ['train', 'dev']
     model.eval()
     dataset = train_dataset if choice == 'train' else dev_dataset
-    predictions, labels = [], []
+    predictions, labels, utts = [], [], []
     total_loss, count = 0, 0
     with torch.no_grad():
+        wrong_examples = dict()
         for i in range(0, len(dataset), args.batch_size):
+            batch_labels = []
+            batch_preds = []
             cur_dataset = dataset[i:i + args.batch_size]
             current_batch = from_example_list(args, cur_dataset, device, train=True)
             pred, label, loss = model.decode(Example.label_vocab, current_batch)
             predictions.extend(pred)
             labels.extend(label)
+            batch_preds.extend(pred)
+            batch_labels.extend(label)
             total_loss += loss
             count += 1
-        metrics = Example.evaluator.acc(
-            predictions, labels
-        )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
+
+            if wrong_examples_tag:
+                wrong_examples[i // args.batch_size] = []
+                for k in range(len(current_batch.utt)):
+                    sentence = current_batch.utt[k]
+                    pred = batch_preds[k]
+                    label = batch_labels[k]
+
+                    if set(pred) != set(label):
+                        example = {"sentence": sentence, "pred": pred, "label": label}
+                        wrong_examples[i // args.batch_size].append(example)
+        if wrong_examples_tag:
+            save_path = os.path.join(root_path, "wrong_examples", args.expri + '_' + time_stramp)
+            if not os.path.exists(save_path):
+                os.makedirs(save_path, exist_ok=True)
+            with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
+                      encoding='utf-8') as file:
+                json.dump(wrong_examples, file, ensure_ascii=False, indent=4)
+        if args.no_metrics:
+            metrics = {'acc': 0., 'fscore': 0.}
+        else:
+            metrics = Example.evaluator.acc(
+                predictions, labels
+            )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
+
     torch.cuda.empty_cache()
     gc.collect()
     return metrics, total_loss / count
@@ -87,7 +130,7 @@ def decode(choice):
 def predict():
     model.eval()
     test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
-    test_dataset = Example.load_dataset(test_path)
+    test_dataset = Example.load_dataset(test_path, args)
     predictions = {}
     with torch.no_grad():
         for i in range(0, len(test_dataset), args.batch_size):
@@ -110,6 +153,7 @@ if not args.testing:
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
+    scheduler = MultiStepLR(optimizer, milestones=args.decay_step, gamma=args.gamma)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
@@ -128,10 +172,12 @@ if not args.testing:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+            scheduler.step()
             count += 1
 
             if j % 50 == 0:
-                metrics, dev_loss = decode('dev')
+                msg = f"epoch={i}_batch={j}" if j == 0 and i % 5 == 0 else None
+                metrics, dev_loss = decode('dev', msg)
                 dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
 
             trainbar.set_description(

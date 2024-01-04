@@ -1,31 +1,32 @@
 import os, shutil
 from tensorboardX import SummaryWriter
+root_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import time
 
 date = time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())
 
-from args import opts
 
-def make_path():
+def make_path(args):
     return (
-        f"{date}_max_epoch={opts.max_epochs}_bs={opts.batch_size}_lr={opts.lr}_seed={opts.seed}_device={opts.device}"
-        f"_encoder={opts.encoder_cell}_dropout={opts.dropout}_embed={opts.embed_size}_hidden={opts.hidden_size}_layer={opts.num_layer}"
+        f"{args.expri}_{date}_max_epoch={args.max_epoch}_bs={args.batch_size}_lr={args.lr}_decay={args.decay_step}_gamma={args.gamma}"
+        f"_encoder={args.encoder_cell}_decoder={args.decoder}_dropout={args.dropout}"
     )
 
 
 def makedir(path):
     if not os.path.exists(path):
-        os.makedirs(path, 0o777)  # 0o777 means the mode of the folder, which is the permission of the folder, could be read, write and execute.
+        os.makedirs(path, 0o777,exist_ok=True)  # 0o777 means the mode of the folder, which is the permission of the folder, could be read, write and execute.
 
 
-def visualizer(dir="tensorBoard", clear_visualizer=True):
-    save_path = make_path()
-    # filewriter_path = config['visual_base']+opts.savepath+'/'
+def visualizer(args, clear_visualizer=True):
+    save_path = make_path(args)
+    # filewriter_path = config['visual_base']+args.savepath+'/'
 
-    filewriter_path = os.path.join(dir, save_path)
-    if opts.clear_visualizer and os.path.exists(filewriter_path):  # 删掉以前的summary，以免重合
+    filewriter_path = os.path.join(root_path, args.visualize_path, save_path)
+    if clear_visualizer and os.path.exists(filewriter_path):  # 删掉以前的summary，以免重合
         shutil.rmtree(filewriter_path)
     makedir(filewriter_path)
     writer = SummaryWriter(filewriter_path, comment='visualizer')
+    return writer
