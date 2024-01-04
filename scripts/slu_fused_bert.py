@@ -40,12 +40,11 @@ if args.device == -1:
     args.device = "cpu"
     device = "cpu"
 else:
-    # device = set_torch_device(args.device)
-    device = "cuda:3"
+    device = set_torch_device(args.device)
 
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train_augmented.json')
-dev_path = os.path.join(args.dataroot, 'development.json')
+dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path, args)
 dev_dataset = Example.load_dataset(dev_path, args)
