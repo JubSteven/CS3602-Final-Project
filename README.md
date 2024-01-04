@@ -41,4 +41,6 @@ python scripts/slu_fused_bert.py --expri=<name of the experiment> --device=<gpu_
 
 ## Result
 
-It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model.
+It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model. Empircal results of the model is shown as follows.
+
+![](imgs/result.png)
