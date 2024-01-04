@@ -1,0 +1,43 @@
+{
+    "acts": [
+        "Remind",
+        "Sing",
+        "PlayPoem",
+        "GetNews",
+        "PlayFMJoke",
+        "Chat",
+        "AskKnowledge",
+        "PlayFMFiction",
+        "ControlSystem",
+        "PlayMusic",
+        "GetWeather",
+        "PlayFMStory",
+        "PlayFMCrosstalk"
+    ],
+    "slots": [
+        "album_name",
+        "joke_tag",
+        "poem_tag",
+        "list",
+        "movie_name",
+        "actor_name",
+        "singer_name",
+        "poem_name",
+        "author_name",
+        "song_type",
+        "news_tag",
+        "song_name",
+        "song_language",
+        "event",
+        "joke_name",
+        "story_tag",
+        "crosstalk_name",
+        "news_time",
+        "story_name",
+        "location",
+        "fiction_tag",
+        "fiction_name",
+        "date",
+        "ranking"
+    ]
+}

@@ -4,11 +4,6 @@ from torch.optim import Adam
 from tqdm import tqdm
 import json
 
-# current_dir = os.getcwd()
-# root = os.path.dirname(current_dir)
-# os.chdir(root)
-# change the working path to the root of the project
-
 install_path = os.path.abspath(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(install_path)
 
@@ -48,9 +43,8 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
-# train_path = os.path.join(args.dataroot, 'train_augmented.json')
-dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
+train_path = os.path.join(args.dataroot, 'train_aug.json')
+dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path, args)
 dev_dataset = Example.load_dataset(dev_path, args)
@@ -64,6 +58,8 @@ args.tag_pad_idx = Example.label_vocab.convert_tag_to_idx(PAD)
 
 print("device", device)
 model = SLUFusedBertTagging(args).to(device)
+if args.encoder_cell == "naive-transformer" or args.encoder_cell == "naive-bert":
+    Example.word2vec.load_embeddings(model.word_embed, Example.word_vocab, device=device)
 
 if args.testing:
     check_point = torch.load(open(args.ckpt, 'rb'), map_location=device)
@@ -128,7 +124,7 @@ def decode(choice, wrong_examples_tag=None):
 def predict():
     model.eval()
     test_path = os.path.join(args.dataroot, 'test_unlabelled.json')
-    test_dataset = Example.load_dataset(test_path)
+    test_dataset = Example.load_dataset(test_path, args)
     predictions = {}
     with torch.no_grad():
         for i in range(0, len(test_dataset), args.batch_size):
@@ -170,7 +166,6 @@ if not args.testing:
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-            scheduler.step()
             count += 1
 
             if j % 50 == 0:
@@ -208,6 +203,8 @@ if not args.testing:
                 f"Epoch: {i} | L: {epoch_loss / count:.2f}| Best_Acc: {best_result['dev_acc']:.2f} | Acc: {dev_acc:.2f} | P: {dev_fscore['precision']:.2f} | R: {dev_fscore['recall']:.2f}| F: {dev_fscore['fscore']:.2f}"
             )
             writer.add_scalar("train/epoch_loss", epoch_loss / count, j + i * 160)  # 160 = 「(nsamples / batch_size)
+
+        scheduler.step(dev_loss)
         torch.cuda.empty_cache()
         gc.collect()
 

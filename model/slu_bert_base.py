@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
-from transformers import BertTokenizer, BertModel, BertConfig
+from transformers import BertTokenizer, BertModel, BertConfig, BertForPreTraining
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 import jieba
 from text2vec import SentenceModel
 import logging
 import numpy as np
+from torch.nn import Transformer
 # from accelerate import Accelerator
 
 # accelerator = Accelerator()
@@ -22,7 +23,7 @@ class TaggingFNNDecoder(nn.Module):
 
     def forward(self, hiddens, mask, labels=None):
         logits = self.output_layer(hiddens)
-        logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
+        logits += mask.float().unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
         prob = torch.softmax(logits, dim=-1)
         if labels is not None:
             loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
@@ -48,7 +49,7 @@ class RNNTaggingDecoder(nn.Module):
     def forward(self, hiddens, mask, labels=None):
         logits, _ = self.output_layer(hiddens)
         logits = self.linear_layer(logits)
-        logits += (1 - mask).unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
+        logits += mask.float().unsqueeze(-1).repeat(1, 1, self.num_tags) * -1e32
         prob = torch.softmax(logits, dim=-1)
         if labels is not None:
             loss = self.loss_fct(logits.reshape(-1, logits.shape[-1]), labels.view(-1))
@@ -225,7 +226,7 @@ class SLUFusedBertTagging(nn.Module):
         print("apply_LA = ", self.apply_LA)
         print("=====================================")
         self.merge_hidden = cfg.merge_hidden
-        self.set_model()
+        self.set_model(cfg)
 
         if self.model_type == "MacBERT-base":
             self.hidden_size = 768
@@ -245,15 +246,26 @@ class SLUFusedBertTagging(nn.Module):
         else:
             self.output_layer = RNNTaggingDecoder(self.hidden_size, self.num_tags, cfg.tag_pad_idx, cfg.decoder)
 
-    def set_model(self):
-        # assert self.model_type in ["bert-base-chinese", "MiniRBT-h256-pt", "MacBERT-base","MacBERT-large"]
+    def set_model(self, cfg):
         if self.model_type == "bert-base-chinese":
             self.tokenizer = BertTokenizer.from_pretrained(self.model_type)
             self.model = BertModel.from_pretrained(self.model_type, output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
+        elif self.model_type == "naive-bert":
+            self.bertConfig = BertConfig(
+                vocab_size=cfg.vocab_size,  # Specify the size of the vocabulary
+                hidden_size=768,  # Specify the size of the hidden layers
+                num_hidden_layers=12,  # Specify the number of hidden layers
+                num_attention_heads=12,  # Specify the number of attention heads
+                intermediate_size=2048,  # Specify the intermediate size for the feed-forward layers
+            )
+            self.model = BertForPreTraining(self.bertConfig)
+            self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
         elif self.model_type == "MacBERT-base":
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-base",
                                                               output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
             # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
 
             return
@@ -261,58 +273,104 @@ class SLUFusedBertTagging(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-large")
             self.model = AutoModelForMaskedLM.from_pretrained("hfl/chinese-macbert-large",
                                                               output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
             # we just use MacBERT-base for the baseline, so to avoid bugs, we don't need to carry further operations on the model
             return
         elif self.model_type == "roberta-base":
             self.tokenizer = BertTokenizer.from_pretrained("clue/roberta_chinese_base")
             self.model = BertModel.from_pretrained("clue/roberta_chinese_base",
                                                    output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
+        elif self.model_type == "naive-transformer":
+            self.word_embed = nn.Embedding(cfg.vocab_size, cfg.embed_size, padding_idx=0)
+            self.tag_embed = nn.Embedding(cfg.num_tags, cfg.embed_size)
+            self.transformer = Transformer(d_model=cfg.embed_size,
+                                           nhead=8,
+                                           num_encoder_layers=6,
+                                           num_decoder_layers=6,
+                                           dim_feedforward=2048,
+                                           dropout=cfg.dropout,
+                                           batch_first=True)
+            self.dropout_layer = nn.Dropout(p=cfg.dropout)
+            self.bertConfig = BertConfig()
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_type)
             self.model = AutoModelForMaskedLM.from_pretrained(self.model_type,
                                                               output_hidden_states=True).to(self.device)
+            self.bertConfig = BertConfig.from_pretrained(self.model_type)
 
-        self.bertConfig = BertConfig.from_pretrained(self.model_type)
-
-        # Similar to the baseline, add the key attributes here.
         self.bertConfig.word2vec_embed_size = self.cfg.embed_size
         self.bertConfig.word2vec_vocab_size = self.cfg.vocab_size
 
         # Add a configuration for the LA decoder layer
         self.bertConfig.LA_decoder = self.cfg.LA_decoder
 
-        assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
-        total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
-        layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
+        # assert self.fix_rate >= 0 and self.fix_rate <= 1, "fix_rate should be in [0, 1]"
+        # total_layers = len(self.model.encoder.layer)  # Bert 模型的总层数
+        # layers_to_freeze = int(total_layers * self.fix_rate)  # 根据 fix_rate 决定冻结多少层
 
-        for layer in self.model.encoder.layer[:layers_to_freeze]:
-            for param in layer.parameters():
-                param.requires_grad = False
+        # for layer in self.model.encoder.layer[:layers_to_freeze]:
+        #     for param in layer.parameters():
+        #         param.requires_grad = False
+
+    def positional_encoding(self, X, num_features, dropout_p=0.1, max_len=512):
+        dropout = nn.Dropout(dropout_p)
+        P = torch.zeros((1, max_len, num_features))
+        X_ = torch.arange(max_len, dtype=torch.float32).reshape(-1, 1) / torch.pow(
+            10000,
+            torch.arange(0, num_features, 2, dtype=torch.float32) / num_features)
+        P[:, :, 0::2] = torch.sin(X_)
+        P[:, :, 1::2] = torch.cos(X_)
+        X = X + P[:, :X.shape[1], :].to(X.device)
+        return dropout(X)
 
     def forward(self, batch):
         """
             Here batch is a list of original sentences
         """
         tag_ids = batch.tag_ids
-        tag_mask = batch.tag_mask
+        tag_mask = (1 - batch.tag_mask).bool()
         input_word2vec_ids = batch.input_ids  # already padded
+        lengths = batch.lengths
 
         self.length = [len(utt) for utt in batch.utt]
-        encoded_inputs = self.tokenizer(batch.utt,
-                                        padding="max_length",
-                                        truncation=True,
-                                        max_length=max(self.length),
-                                        return_tensors='pt').to(self.device)
 
-        hidden_states = self.model(**encoded_inputs).hidden_states
-        hiddens = hidden_states[-1]  # [B, L, D]
+        if self.model_type == 'naive-transformer':
+            src_embed = self.word_embed(input_word2vec_ids)
+            src_embed = self.positional_encoding(X=src_embed, num_features=self.cfg.embed_size)
+            tgt_embed = self.tag_embed(tag_ids)
+            tgt_embed = self.positional_encoding(X=tgt_embed, num_features=self.cfg.embed_size)
 
-        if self.merge_hidden:
-            # merge the four last layers
-            B, L = hiddens.shape[:2]
-            stacked_hidden = torch.stack(hidden_states[-4:])
-            stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
-            hiddens, _ = self.merge_layer(stacked_hidden)
+            mask = self.transformer.generate_square_subsequent_mask(max(lengths)).to(src_embed.device)
+            outs = self.transformer(src=src_embed,
+                                    tgt=tgt_embed,
+                                    tgt_mask=mask,
+                                    src_key_padding_mask=tag_mask,
+                                    tgt_key_padding_mask=tag_mask)
+            # print(outs.shape)
+            hiddens = self.dropout_layer(outs)
+
+        else:
+            if self.model_type != "naive-bert":
+                encoded_inputs = self.tokenizer(batch.utt,
+                                                padding="max_length",
+                                                truncation=True,
+                                                max_length=max(self.length),
+                                                return_tensors='pt').to(self.device)
+                hidden_states = self.model(**encoded_inputs, output_hidden_states=True).hidden_states
+            else:
+                encoded_inputs = input_word2vec_ids
+                # self.model.embeddings.word_embeddings = self.word_embed
+                hidden_states = self.model(encoded_inputs, attention_mask=batch.tag_mask,
+                                           output_hidden_states=True).hidden_states
+
+            hiddens = hidden_states[-1]  # [B, L, D]
+            if self.merge_hidden:
+                # merge the four last layers
+                B, L = hiddens.shape[:2]
+                stacked_hidden = torch.stack(hidden_states[-4:])
+                stacked_hidden = stacked_hidden.view(B, L, -1)  # [B, L, D * 4]
+                hiddens, _ = self.merge_layer(stacked_hidden)
 
         if self.apply_LA:
             hiddens = self.LA_layer(batch.utt, hiddens)

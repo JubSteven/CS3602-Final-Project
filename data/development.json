@@ -478,7 +478,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "附近的奇瑞四s店",
-            "asr_1best": "附近的奇瑞四S店",
+            "asr_1best": "附近的奇瑞四s店",
             "semantic": [
                 [
                     "inform",
@@ -1182,7 +1182,7 @@
         {
             "utt_id": 3,
             "manual_transcript": "(side)(unknown)的地方啊",
-            "asr_1best": "铃木四S店的地方",
+            "asr_1best": "铃木四s店的地方",
             "semantic": []
         }
     ],
@@ -2475,7 +2475,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "导航大众益阳四s店",
-            "asr_1best": "导航大众益阳四S店",
+            "asr_1best": "导航大众益阳四s店",
             "semantic": [
                 [
                     "inform",
@@ -2520,7 +2520,7 @@
         {
             "utt_id": 2,
             "manual_transcript": "去望城路四s店",
-            "asr_1best": "去望城路四S店",
+            "asr_1best": "去望城路四s店",
             "semantic": [
                 [
                     "inform",
@@ -2794,7 +2794,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "嗯到万达旅游城n区",
-            "asr_1best": "到万达旅游城N七",
+            "asr_1best": "到万达旅游城n七",
             "semantic": [
                 [
                     "inform",
@@ -2909,7 +2909,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "迪迪派",
-            "asr_1best": "D E派",
+            "asr_1best": "d e派",
             "semantic": [
                 [
                     "inform",
@@ -3924,7 +3924,7 @@
         {
             "utt_id": 2,
             "manual_transcript": "去福建师范大学协和季协和学院计算机楼d五",
-            "asr_1best": "去福建师范大学协和季协和学院计算机楼D",
+            "asr_1best": "去福建师范大学协和季协和学院计算机楼d",
             "semantic": [
                 [
                     "inform",
@@ -4881,7 +4881,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "我要去青岛成达别克四s店",
-            "asr_1best": "我要去青岛成达别克四S店",
+            "asr_1best": "我要去青岛成达别克四s店",
             "semantic": [
                 [
                     "inform",
@@ -8943,7 +8943,7 @@
         {
             "utt_id": 1,
             "manual_transcript": "给我找就近的ktv给我",
-            "asr_1best": "给我找就近的KTV给我",
+            "asr_1best": "给我找就近的ktv给我",
             "semantic": [
                 [
                     "inform",
@@ -9715,7 +9715,7 @@
         {
             "utt_id": 2,
             "manual_transcript": "e空间",
-            "asr_1best": "E空间",
+            "asr_1best": "e空间",
             "semantic": [
                 [
                     "inform",
@@ -10366,7 +10366,7 @@
         {
             "utt_id": 14,
             "manual_transcript": "(side)",
-            "asr_1best": "D L",
+            "asr_1best": "d l",
             "semantic": []
         },
         {

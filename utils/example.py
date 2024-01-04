@@ -40,11 +40,10 @@ class Example():
         self.did = did  # data id
 
         self.utt = ex['asr_1best']  # the sentence
-        self.gt = ex["manual_transcript"]  # record the ground truth
         self.flexible_tag = cfg.flexible_tag
 
         if cfg.use_gt:
-            self.utt = self.gt
+            self.utt = ex["manual_transcript"]  # record the ground truth
 
         self.slot = {}
         for label in ex['semantic']:

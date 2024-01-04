@@ -1,5 +1,6 @@
 #coding=utf8
 import os, json
+
 PAD = '<pad>'
 UNK = '<unk>'
 BOS = '<s>'
