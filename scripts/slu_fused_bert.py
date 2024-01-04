@@ -43,9 +43,8 @@ else:
     device = set_torch_device(args.device)
 
 start_time = time.time()
-train_path = os.path.join(args.dataroot, 'train.json')
-# train_path = os.path.join(args.dataroot, 'train_augmented.json')
-dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
+train_path = os.path.join(args.dataroot, 'train_aug.json')
+dev_path = os.path.join(args.dataroot, 'development.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path, args)
 dev_dataset = Example.load_dataset(dev_path, args)
@@ -148,7 +147,7 @@ if not args.testing:
     num_training_steps = ((len(train_dataset) + args.batch_size - 1) // args.batch_size) * args.max_epoch
     print('Total training steps: %d' % (num_training_steps))
     optimizer = set_optimizer(model, args)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=5, verbose=True)
+    scheduler = MultiStepLR(optimizer, milestones=args.decay_step, gamma=args.gamma)
     nsamples, best_result = len(train_dataset), {'dev_acc': 0., 'dev_f1': 0.}
     train_index, batch_size = np.arange(nsamples), args.batch_size
     print('Start training ......')
