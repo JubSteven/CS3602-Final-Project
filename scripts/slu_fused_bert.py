@@ -50,7 +50,8 @@ else:
 start_time = time.time()
 train_path = os.path.join(args.dataroot, 'train_SOTA.json')
 # train_path = os.path.join(args.dataroot, 'train_augmented.json')
-dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
+# dev_path = os.path.join(args.dataroot, 'development_SOTA.json')
+dev_path = os.path.join(args.dataroot, 'test_unlabelled.json')
 Example.configuration(args.dataroot, train_path=train_path, word2vec_path=args.word2vec_path)
 train_dataset = Example.load_dataset(train_path, args)
 dev_dataset = Example.load_dataset(dev_path, args)
@@ -116,9 +117,12 @@ def decode(choice, wrong_examples_tag=None):
             with open(os.path.join(save_path, f"{wrong_examples_tag}_wrong_examples.json"), 'w',
                       encoding='utf-8') as file:
                 json.dump(wrong_examples, file, ensure_ascii=False, indent=4)
-        metrics = Example.evaluator.acc(
-            predictions, labels
-        )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
+        if args.no_metrics:
+            metrics = {'acc': 0., 'fscore': 0.}
+        else:
+            metrics = Example.evaluator.acc(
+                predictions, labels
+            )  # here predictions and labels all comoposed of act-slot-value(maybe without slot or slot-value), for comparison
 
     torch.cuda.empty_cache()
     gc.collect()
@@ -219,6 +223,9 @@ else:
     metrics, dev_loss = decode('dev')
     dev_acc, dev_fscore = metrics['acc'], metrics['fscore']
     predict()
-    print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
-          (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
-           dev_fscore['fscore']))
+    if args.no_metrics:
+        pass
+    else:
+        print("Evaluation costs %.2fs ; Dev loss: %.4f\tDev acc: %.2f\tDev fscore(p/r/f): (%.2f/%.2f/%.2f)" %
+              (time.time() - start_time, dev_loss, dev_acc, dev_fscore['precision'], dev_fscore['recall'],
+               dev_fscore['fscore']))
