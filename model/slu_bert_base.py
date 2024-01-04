@@ -63,12 +63,13 @@ class LexionAdapter(nn.Module):
         Adapted from https://github.com/liuwei1206/LEBERT/blob/main/wcbert_modeling.py
     """
 
-    def __init__(self, bertConfig):
+    def __init__(self, bertConfig, device = 0):
         super(LexionAdapter, self).__init__()
         self.dropout = nn.Dropout(0.2)
         self.tanh = nn.Tanh()
+        self.device = device
 
-        self.text_embed = SentenceModel()
+        self.text_embed = SentenceModel(device = self.device)
 
         if bertConfig.LA_decoder:
             self.hidden_decode = getattr(nn, bertConfig.LA_decoder)(bertConfig.hidden_size,
@@ -235,7 +236,7 @@ class SLUFusedBertTagging(nn.Module):
             self.hidden_size = self.bertConfig.hidden_size
 
         if self.apply_LA:
-            self.LA_layer = LexionAdapter(self.bertConfig)
+            self.LA_layer = LexionAdapter(self.bertConfig, device=self.device)
 
         if self.merge_hidden:
             self.merge_layer = nn.GRU(self.hidden_size * 4, self.hidden_size, bidirectional=False, batch_first=True)

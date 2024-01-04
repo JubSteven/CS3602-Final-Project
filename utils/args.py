@@ -25,6 +25,7 @@ def add_argument_base(arg_parser):
                             default="visualization",
                             help="path to store tensorboard visualization files")
     arg_parser.add_argument('--expri', default="empty", help="description of this experiment")
+    arg_parser.add_argument("--no_metrics", action="store_true", help="do not use metrics")
     #### Training Hyperparams ####
     arg_parser.add_argument('--batch_size', default=32, type=int, help='Batch size')
     arg_parser.add_argument('--lr', type=float, default=1e-4, help='learning rate')
