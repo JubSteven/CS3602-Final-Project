@@ -44,7 +44,7 @@ For testing on the given dataset, run the following command in shell
 python scripts/slu_fused_bert.py --expri=<name of the experiment> --device=<gpu_id, -1 for cpu> --testing --ckpt <path to checkpoint>
 ```
 
-The pretrained model can be downloaded here.
+The pretrained model can be downloaded [here](https://drive.google.com/file/d/1C9yZf3DndsRJ3vnC9Co5f_PeJPydmgku/view?usp=drive_link).
 
 
 ## Result
