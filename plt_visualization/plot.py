@@ -62,4 +62,4 @@ for file_path, title in file_paths_titles.items():
     ax.legend()
 
 plt.tight_layout()
-plt.savefig('plt_visualization/assets/plot.png')
+plt.savefig('plt_visualization/assets/plot.pdf')
