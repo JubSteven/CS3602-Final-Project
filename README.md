@@ -1,6 +1,6 @@
 # CS3602 Slot Language Understanding
 
-> Benhao Huang, Yizhou Liu and Pengxiang Zhu*
+> [Benhao Huang](https://huskydoge.github.io/), [Yizhou Liu](https://github.com/yizhou0409) and [Pengxiang Zhu](https://jubsteven.github.io/)
 > 
 > Computer Science and Engineering of IEEE Honor Class, Shanghai Jiao Tong University
 
@@ -49,7 +49,7 @@ The pretrained model can be downloaded [here](https://drive.google.com/file/d/1C
 
 ## Result
 
-It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model. Empircal results of the model is shown as follows.
+It is worth noting that it is therotically impossible to predict the correct result for 12% of the test data, as the *value* of the label is not in the asr input. Since we can only extract the *value* from the asr input, predicting the correct result would require generative methods, which are not available in our model. Empircal results of the model is shown as follows, while the prediction of the given `test_unlabelled.json` is stored in `prediction.json`.
 
 ![](imgs/result.png)
 
