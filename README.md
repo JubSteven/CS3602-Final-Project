@@ -4,7 +4,7 @@
 > 
 > Computer Science and Engineering of IEEE Honor Class, Shanghai Jiao Tong University
 
-In this repo, we complete the final project for CS3602 (Natural Language Understanding). Give the dataset `data/train.json` for training and `data/developement.json` for testing. The project is about slot language understanding, where the datasets contain (action, slot, value) triples and we need to extract these information from the given ASR inputs. The framework of our proposed model can be shown as follows.
+In this repo, we complete the final project for CS3602 (Natural Language Understanding). The dataset `data/train.json` is used for training and `data/developement.json` is used for testing. The project is about slot language understanding, where the datasets contain (action, slot, value) triples and we need to extract these information from the given ASR inputs. The framework of our proposed model can be shown as follows.
 
 ![framework](imgs/framework.jpg)
 
