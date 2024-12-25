@@ -2,7 +2,7 @@
 
 > [Benhao Huang](https://huskydoge.github.io/), [Yizhou Liu](https://github.com/yizhou0409) and [Pengxiang Zhu](https://jubsteven.github.io/)
 > 
-> Computer Science and Engineering of IEEE Honor Class, Shanghai Jiao Tong University
+> Computer Science and Engineering (IEEE Honor Class), Shanghai Jiao Tong University
 
 In this repo, we complete the final project for CS3602 (Natural Language Understanding). The dataset `data/train.json` is used for training and `data/developement.json` is used for testing. The project is about slot language understanding, where the datasets contain (action, slot, value) triples and we need to extract these information from the given ASR inputs. The framework of our proposed model can be shown as follows.
 
